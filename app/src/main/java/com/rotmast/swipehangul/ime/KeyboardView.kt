@@ -285,6 +285,8 @@ class KeyboardView(context: Context) : View(context) {
             KeyKind.SPACE -> drawSpace(canvas, r)
             KeyKind.ENTER -> drawEnter(canvas, r)
             KeyKind.NUM_PAD -> drawNumPad(canvas, r)
+            KeyKind.CURSOR_LEFT -> drawArrow(canvas, r, left = true)
+            KeyKind.CURSOR_RIGHT -> drawArrow(canvas, r, left = false)
             KeyKind.CONSONANT, KeyKind.CHAR -> {
                 val label = displayLabel(key)
                 labelPaint.typeface = Typeface.DEFAULT
@@ -397,6 +399,24 @@ class KeyboardView(context: Context) : View(context) {
         iconPaint.strokeWidth = dp(2.2f)
     }
 
+    private fun drawArrow(canvas: Canvas, r: RectF, left: Boolean) {
+        val w = min(dp(26f), r.width() * 0.6f)
+        val h = dp(18f)
+        val s = if (left) 1f else -1f
+        val cx = r.centerX()
+        val cy = r.centerY()
+        path.reset()
+        path.moveTo(cx - s * w / 2, cy)
+        path.lineTo(cx - s * w / 8, cy - h / 2)
+        path.lineTo(cx - s * w / 8, cy - h / 4)
+        path.lineTo(cx + s * w / 2, cy - h / 4)
+        path.lineTo(cx + s * w / 2, cy + h / 4)
+        path.lineTo(cx - s * w / 8, cy + h / 4)
+        path.lineTo(cx - s * w / 8, cy + h / 2)
+        path.close()
+        canvas.drawPath(path, iconPaint)
+    }
+
     private fun drawEnter(canvas: Canvas, r: RectF) {
         val w = dp(26f)
         val h = dp(20f)
@@ -503,7 +523,8 @@ class KeyboardView(context: Context) : View(context) {
         when (key.kind) {
             KeyKind.CONSONANT ->
                 if (Jamo.aspirate(key.text[0]) != null) postDelayed(p.longPressAction, LONG_PRESS_MS)
-            KeyKind.BACKSPACE -> postDelayed(p.repeatAction, REPEAT_DELAY_MS)
+            KeyKind.BACKSPACE, KeyKind.CURSOR_LEFT, KeyKind.CURSOR_RIGHT ->
+                postDelayed(p.repeatAction, REPEAT_DELAY_MS)
             KeyKind.NUM_PAD -> postDelayed(p.longPressAction, NUM_PAD_LONG_PRESS_MS)
             else -> Unit
         }
@@ -598,6 +619,8 @@ class KeyboardView(context: Context) : View(context) {
             KeyKind.SELECT_ALL -> l.onEditAction(android.R.id.selectAll)
             KeyKind.COPY -> l.onEditAction(android.R.id.copy)
             KeyKind.PASTE -> l.onEditAction(android.R.id.paste)
+            KeyKind.UNDO -> l.onEditAction(android.R.id.undo)
+            KeyKind.CURSOR_LEFT, KeyKind.CURSOR_RIGHT -> if (!p.repeating) fireRepeatable(key)
             KeyKind.PAGE -> {
                 symbolPage = 1 - symbolPage
                 rebuild()
@@ -616,6 +639,8 @@ class KeyboardView(context: Context) : View(context) {
         val l = listener ?: return
         when (key.kind) {
             KeyKind.BACKSPACE -> l.onBackspace()
+            KeyKind.CURSOR_LEFT -> l.onCursorMove(-1)
+            KeyKind.CURSOR_RIGHT -> l.onCursorMove(1)
             else -> Unit
         }
     }
