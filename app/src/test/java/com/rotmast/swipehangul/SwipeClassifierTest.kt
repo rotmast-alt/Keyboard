@@ -79,13 +79,38 @@ class SwipeClassifierTest {
         assertEquals('ㅕ', vowel(-50f to 0f, 30f to 0f))
     }
 
-    @Test fun turnsMakeCompoundVowels() {
-        assertEquals('ㅘ', vowel(0f to -40f, 40f to 0f))
-        assertEquals('ㅚ', vowel(0f to -40f, 30f to 30f))
-        assertEquals('ㅝ', vowel(0f to 40f, -40f to 0f))
-        assertEquals('ㅟ', vowel(0f to 40f, 30f to 30f))
-        assertEquals('ㅞ', vowel(0f to 40f, -30f to -30f))
-        assertEquals('ㅢ', vowel(-30f to 30f, 30f to 30f))
+    /** 출발점 기준 자리들을 차례로 지나는 경로 (꺾기 = 첫 모음 자리 → 둘째 모음 자리) */
+    private fun via(vararg spots: Pair<Float, Float>): Char {
+        var prev = 0f to 0f
+        val legs = spots.map { (x, y) -> (x - prev.first to y - prev.second).also { prev = x to y } }
+        return vowel(*legs.toTypedArray())
+    }
+
+    @Test fun turnsBetweenVowelSpotsMakeCompoundVowels() {
+        assertEquals('ㅘ', via(0f to -40f, 40f to 0f))     // ㅗ자리 → ㅏ자리
+        assertEquals('ㅙ', via(0f to -40f, 30f to -30f))   // ㅗ자리 → ㅐ자리
+        assertEquals('ㅚ', via(0f to -40f, 30f to 30f))    // ㅗ자리 → ㅣ자리
+        assertEquals('ㅝ', via(0f to 40f, -40f to 0f))     // ㅜ자리 → ㅓ자리
+        assertEquals('ㅞ', via(0f to 40f, -30f to -30f))   // ㅜ자리 → ㅔ자리
+        assertEquals('ㅟ', via(0f to 40f, 30f to 30f))     // ㅜ자리 → ㅣ자리
+        assertEquals('ㅢ', via(-30f to 30f, 30f to 30f))   // ㅡ자리 → ㅣ자리
+    }
+
+    @Test fun anthemTypo_gwaBecameGoe() {
+        // '과·화'가 '괴·회'로 나오던 오타: ㅗ자리에서 ㅏ자리로 내려오며 이동
+        assertEquals('ㅘ', via(0f to -45f, 42f to 5f))
+        assertEquals('ㅘ', via(3f to -40f, 38f to -6f))
+    }
+
+    @Test fun anthemTypo_thumbDrift() {
+        // '마·나·다'가 '미·니·디'로: 오른쪽으로 밀 때 엄지가 아래로 휨
+        assertEquals('ㅏ', vowel(40f to 17f))
+        assertEquals('ㅏ', vowel(35f to 6f, 10f to 8f))
+        // '르'가 '러'로: 왼쪽 아래로 밀었는데 각도가 얕음
+        assertEquals('ㅡ', vowel(-38f to 20f))
+        // 그래도 대각선은 대각선
+        assertEquals('ㅣ', vowel(30f to 34f))
+        assertEquals('ㅓ', vowel(-40f to 4f))
     }
 
     @Test fun gentleArcIsNotATurn() {

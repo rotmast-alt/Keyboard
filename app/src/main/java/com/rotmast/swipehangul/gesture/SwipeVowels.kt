@@ -10,7 +10,8 @@ import com.rotmast.swipehangul.hangul.Jamo
  *  ↙ㅡ   ↓ㅜ   ↘ㅣ
  *
  *  - 밀었다가 자음으로 되돌아오기: ㅑ ㅕ ㅛ ㅠ ㅒ ㅖ
- *  - 꺾기: 두 모음을 합친다. ↑→ ㅘ, ↑↗ ㅙ, ↑↘ ㅚ, ↓← ㅝ, ↓↖ ㅞ, ↓↘ ㅟ, ↙↘ ㅢ
+ *  - 꺾기: 첫 모음 자리에 갔다가 둘째 모음 자리로 옮기면 합친다.
+ *    ㅗ자리→ㅏ자리 ㅘ, ㅗ→ㅐ ㅙ, ㅗ→ㅣ ㅚ, ㅜ→ㅓ ㅝ, ㅜ→ㅔ ㅞ, ㅜ→ㅣ ㅟ, ㅡ→ㅣ ㅢ
  */
 object SwipeVowels {
     fun base(d: Direction): Char = when (d) {
@@ -32,6 +33,7 @@ object SwipeVowels {
                 Jamo.iotize(v1)?.let { return it }
             }
             Jamo.combineJung(v1, base(second))?.let { return it }
+            g.stroke?.let { Jamo.combineJung(v1, base(it)) }?.let { return it }
         }
         return v1
     }

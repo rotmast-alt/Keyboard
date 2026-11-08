@@ -494,7 +494,9 @@ class KeyboardView(context: Context) : View(context) {
     }
 
     private fun onDown(id: Int, x: Float, y: Float) {
-        val key = keyAt(x, y) ?: return
+        // 손가락 접촉점은 보는 위치보다 아래로 잡히므로 키 판정은 살짝 위로 올려서 한다
+        // ('이'를 치려다 바로 아래 ㅈ이 눌리던 오타)
+        val key = keyAt(x, y - dp(TOUCH_OFFSET_DP)) ?: return
         val p = Pointer(key, x, y)
         pointers[id] = p
         performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
@@ -639,7 +641,8 @@ class KeyboardView(context: Context) : View(context) {
         if (row < 0) return null
         val col = rows[row].indexOf(p.key)
         val base = p.key.text[0]
-        val radius = min(p.key.rect.width(), p.key.rect.height()) * 0.45f
+        // 목표 키 가운데까지 다 가지 않아도 되도록 넉넉하게 ('한'이 '연'으로 나오던 오타)
+        val radius = min(p.key.rect.width(), p.key.rect.height()) * 0.62f
         val candidates = listOf(
             Triple(0, 2, Jamo.aspirate(base)), Triple(0, -2, Jamo.aspirate(base)),
             Triple(2, 0, Jamo.tense(base)), Triple(-2, 0, Jamo.tense(base)),
@@ -719,5 +722,6 @@ class KeyboardView(context: Context) : View(context) {
         const val REPEAT_INTERVAL_MS = 50L
         const val DOUBLE_TAP_MS = 300L
         const val CURSOR_STEP_DP = 12f
+        const val TOUCH_OFFSET_DP = 5f
     }
 }
