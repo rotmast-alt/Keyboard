@@ -1,10 +1,12 @@
 package com.rotmast.swipehangul.ime
 
+import android.content.Intent
 import android.inputmethodservice.InputMethodService
 import android.text.InputType
 import android.view.KeyEvent
 import android.view.View
 import android.view.inputmethod.EditorInfo
+import com.rotmast.swipehangul.SetupActivity
 import com.rotmast.swipehangul.hangul.EditResult
 import com.rotmast.swipehangul.hangul.HangulComposer
 import com.rotmast.swipehangul.hangul.TextEdit
@@ -151,6 +153,13 @@ class SwipeKeyboardService : InputMethodService(), KeyboardView.Listener {
     }
 
     override fun onFlush() = flush()
+
+    override fun onOpenSettings() {
+        requestHideSelf(0)
+        startActivity(
+            Intent(this, SetupActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+        )
+    }
 
     private companion object {
         val ENGLISH_VARIATIONS = setOf(

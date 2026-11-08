@@ -71,6 +71,14 @@ class SwipeClassifierTest {
         assertEquals('ㅒ', vowel(30f to -30f, -30f to 30f))
     }
 
+    @Test fun euReturnMakesUi() {
+        // 스페셜: ㅡ자리(↙)에 갔다가 자음으로 돌아오면 ㅢ
+        assertEquals('ㅢ', vowel(-30f to 30f, 30f to -30f))
+        assertEquals('ㅢ', vowel(-32f to 28f, 26f to -20f))
+        // ㅣ는 돌아와도 ㅣ
+        assertEquals('ㅣ', vowel(30f to 30f, -30f to -30f))
+    }
+
     @Test fun sloppyReturnStillIotizes() {
         // 정확히 반대가 아니어도 출발점 근처로 돌아오면 ㅑ
         assertEquals('ㅑ', vowel(45f to 0f, -38f to 14f))

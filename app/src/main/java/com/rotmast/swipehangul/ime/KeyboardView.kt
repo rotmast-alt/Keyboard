@@ -43,13 +43,14 @@ class KeyboardView(context: Context) : View(context) {
         fun onEnter()
         fun onCursorMove(delta: Int)
         fun onFlush()
+        fun onOpenSettings()
     }
 
     var listener: Listener? = null
 
     private enum class ShiftState { OFF, ONCE, LOCKED }
 
-    private val prefs = context.getSharedPreferences("keyboard", Context.MODE_PRIVATE)
+    private val prefs = context.getSharedPreferences(KeyboardPrefs.FILE, Context.MODE_PRIVATE)
 
     private var mode = Mode.HANGUL
     private var lastLetterMode = Mode.HANGUL
@@ -159,6 +160,7 @@ class KeyboardView(context: Context) : View(context) {
     }
 
     private fun rebuild() {
+        fiveRows = prefs.getBoolean(PREF_FIVE_ROWS, false)
         rows = when (mode) {
             Mode.HANGUL -> Layouts.hangul(fiveRows)
             Mode.ENGLISH -> Layouts.english()
@@ -253,7 +255,7 @@ class KeyboardView(context: Context) : View(context) {
 
     private fun isActive(key: Key) = when (key.kind) {
         KeyKind.SHIFT -> shift != ShiftState.OFF
-        KeyKind.VOWEL_MODE -> vowelMode
+        KeyKind.VOWEL_PAD -> vowelMode
         else -> false
     }
 
@@ -279,9 +281,6 @@ class KeyboardView(context: Context) : View(context) {
             KeyKind.BACKSPACE -> drawBackspace(canvas, r)
             KeyKind.SPACE -> drawSpace(canvas, r)
             KeyKind.ENTER -> drawEnter(canvas, r)
-            KeyKind.CURSOR_LEFT -> drawArrow(canvas, r, left = true)
-            KeyKind.CURSOR_RIGHT -> drawArrow(canvas, r, left = false)
-            KeyKind.ROWS -> drawRowsToggle(canvas, r)
             KeyKind.CONSONANT, KeyKind.CHAR -> {
                 val label = displayLabel(key)
                 labelPaint.typeface = Typeface.DEFAULT
@@ -333,7 +332,7 @@ class KeyboardView(context: Context) : View(context) {
     private fun displayLabel(key: Key): String = when (key.kind) {
         KeyKind.CONSONANT -> key.label
         KeyKind.CHAR -> if (mode == Mode.ENGLISH && shift != ShiftState.OFF) key.label.uppercase() else key.label
-        KeyKind.TO_LETTERS -> if (mode == Mode.ENGLISH || lastLetterMode == Mode.HANGUL) "한글" else "ABC"
+        KeyKind.TO_LETTERS -> if (lastLetterMode == Mode.HANGUL) "한글" else "ABC"
         else -> key.label
     }
 
@@ -375,24 +374,6 @@ class KeyboardView(context: Context) : View(context) {
         iconPaint.strokeWidth = dp(2.2f)
     }
 
-    private fun drawArrow(canvas: Canvas, r: RectF, left: Boolean) {
-        val w = dp(32f)
-        val h = dp(20f)
-        val s = if (left) 1f else -1f
-        val cx = r.centerX()
-        val cy = r.centerY()
-        path.reset()
-        path.moveTo(cx - s * w / 2, cy)
-        path.lineTo(cx - s * w / 8, cy - h / 2)
-        path.lineTo(cx - s * w / 8, cy - h / 4)
-        path.lineTo(cx + s * w / 2, cy - h / 4)
-        path.lineTo(cx + s * w / 2, cy + h / 4)
-        path.lineTo(cx - s * w / 8, cy + h / 4)
-        path.lineTo(cx - s * w / 8, cy + h / 2)
-        path.close()
-        canvas.drawPath(path, iconPaint)
-    }
-
     private fun drawEnter(canvas: Canvas, r: RectF) {
         val w = dp(26f)
         val h = dp(20f)
@@ -407,20 +388,6 @@ class KeyboardView(context: Context) : View(context) {
         path.lineTo(cx - w / 2, cy + h / 4)
         path.lineTo(cx - w / 2 + h / 3, cy + h / 4 + h / 3)
         canvas.drawPath(path, iconPaint)
-        iconPaint.strokeWidth = dp(2.2f)
-    }
-
-    private fun drawRowsToggle(canvas: Canvas, r: RectF) {
-        labelPaint.typeface = Typeface.DEFAULT
-        labelPaint.textSize = dp(14f)
-        val cx = r.centerX()
-        val gap = r.height() * 0.22f
-        labelPaint.color = if (!fiveRows) colorText else colorDim
-        drawCenteredText(canvas, "4줄", cx, r.centerY() - gap, labelPaint)
-        labelPaint.color = if (fiveRows) colorText else colorDim
-        drawCenteredText(canvas, "5줄", cx, r.centerY() + gap, labelPaint)
-        iconPaint.strokeWidth = dp(1.5f)
-        canvas.drawLine(cx - r.width() * 0.3f, r.centerY(), cx + r.width() * 0.3f, r.centerY(), iconPaint)
         iconPaint.strokeWidth = dp(2.2f)
     }
 
@@ -451,6 +418,7 @@ class KeyboardView(context: Context) : View(context) {
                 else -> Jamo.compose(input.consonant, v, null)
             }
         }
+        KeyKind.VOWEL_PAD -> (classifier.classify(p.path) as? Gesture.Swipe)?.let { SwipeVowels.resolve(it).toString() }
         KeyKind.SPACE -> if (p.cursorMode) "◀ ▶" else null
         KeyKind.BACKSPACE -> if (!p.repeating && p.moved && isLeftward(p)) "단어 지우기" else null
         else -> if (p.key.flicks.isNotEmpty() && p.moved) flickText(p) else null
@@ -463,7 +431,8 @@ class KeyboardView(context: Context) : View(context) {
 
     private fun drawTrails(canvas: Canvas) {
         for (p in pointers.values) {
-            if (!p.moved || p.path.size < 2 || p.key.kind != KeyKind.CONSONANT) continue
+            if (!p.moved || p.path.size < 2) continue
+            if (p.key.kind != KeyKind.CONSONANT && p.key.kind != KeyKind.VOWEL_PAD) continue
             path.reset()
             path.moveTo(p.path[0].x, p.path[0].y)
             for (i in 1 until p.path.size) path.lineTo(p.path[i].x, p.path[i].y)
@@ -503,8 +472,7 @@ class KeyboardView(context: Context) : View(context) {
         when (key.kind) {
             KeyKind.CONSONANT ->
                 if (Jamo.aspirate(key.text[0]) != null) postDelayed(p.longPressAction, LONG_PRESS_MS)
-            KeyKind.BACKSPACE, KeyKind.CURSOR_LEFT, KeyKind.CURSOR_RIGHT ->
-                postDelayed(p.repeatAction, REPEAT_DELAY_MS)
+            KeyKind.BACKSPACE -> postDelayed(p.repeatAction, REPEAT_DELAY_MS)
             else -> Unit
         }
     }
@@ -544,7 +512,7 @@ class KeyboardView(context: Context) : View(context) {
         val l = listener ?: return
         val key = p.key
 
-        // 숫자·기호·모음·엔터 키를 밀면 방향별 문자를 입력
+        // 밀기 문자가 있는 키(. 위로 밀면 !)
         if (key.flicks.isNotEmpty() && p.moved) {
             flickText(p)?.let { l.onText(it) }
             return
@@ -566,7 +534,16 @@ class KeyboardView(context: Context) : View(context) {
                 l.onText(text)
                 if (shift == ShiftState.ONCE) shift = ShiftState.OFF
             }
-            KeyKind.VOWEL_MODE -> vowelMode = !vowelMode
+            KeyKind.VOWEL_PAD -> {
+                // 모음 키를 밀면 그 모음만 입력(ㅠㅠ), 탭하면 다음 자음 스와이프를 모음만 입력하는 모드
+                val g = classifier.classify(p.path)
+                if (g is Gesture.Swipe) {
+                    l.onVowel(SwipeVowels.resolve(g))
+                    vowelMode = false
+                } else {
+                    vowelMode = !vowelMode
+                }
+            }
             KeyKind.REPEAT -> l.onRepeat()
             KeyKind.SHIFT -> toggleShift()
             KeyKind.BACKSPACE -> when {
@@ -574,25 +551,23 @@ class KeyboardView(context: Context) : View(context) {
                 p.moved && isLeftward(p) -> l.onDeleteWord()
                 else -> l.onBackspace()
             }
-            KeyKind.CURSOR_LEFT, KeyKind.CURSOR_RIGHT -> if (!p.repeating) fireRepeatable(key)
             KeyKind.SPACE -> if (!p.cursorMode) l.onSpace()
             KeyKind.ENTER -> l.onEnter()
             KeyKind.TO_NUMBERS -> switchTo(if (mode == Mode.NUMBERS) lastLetterMode else Mode.NUMBERS)
             KeyKind.TO_SYMBOLS -> switchTo(Mode.SYMBOLS)
-            KeyKind.TO_ENGLISH -> switchTo(Mode.ENGLISH)
-            KeyKind.TO_LETTERS -> switchTo(if (mode == Mode.ENGLISH) Mode.HANGUL else lastLetterMode)
+            KeyKind.LANG -> switchTo(if (mode == Mode.HANGUL) Mode.ENGLISH else Mode.HANGUL)
+            KeyKind.TO_LETTERS -> switchTo(lastLetterMode)
+            KeyKind.SETTINGS -> {
+                l.onFlush()
+                l.onOpenSettings()
+            }
             KeyKind.PAGE -> {
                 symbolPage = 1 - symbolPage
                 rebuild()
             }
-            KeyKind.ROWS -> {
-                fiveRows = !fiveRows
-                prefs.edit().putBoolean(PREF_FIVE_ROWS, fiveRows).apply()
-                rebuild()
-            }
             KeyKind.SPACER -> Unit
         }
-        if (key.kind != KeyKind.VOWEL_MODE && key.kind != KeyKind.CONSONANT) vowelMode = false
+        if (key.kind != KeyKind.VOWEL_PAD && key.kind != KeyKind.CONSONANT) vowelMode = false
     }
 
     private fun switchTo(newMode: Mode) {
@@ -604,8 +579,6 @@ class KeyboardView(context: Context) : View(context) {
         val l = listener ?: return
         when (key.kind) {
             KeyKind.BACKSPACE -> l.onBackspace()
-            KeyKind.CURSOR_LEFT -> l.onCursorMove(-1)
-            KeyKind.CURSOR_RIGHT -> l.onCursorMove(1)
             else -> Unit
         }
     }
@@ -716,7 +689,7 @@ class KeyboardView(context: Context) : View(context) {
     }
 
     private companion object {
-        const val PREF_FIVE_ROWS = "five_rows"
+        const val PREF_FIVE_ROWS = KeyboardPrefs.FIVE_ROWS
         const val LONG_PRESS_MS = 300L
         const val REPEAT_DELAY_MS = 400L
         const val REPEAT_INTERVAL_MS = 50L
