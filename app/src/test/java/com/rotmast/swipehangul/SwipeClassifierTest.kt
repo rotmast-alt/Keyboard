@@ -102,6 +102,13 @@ class SwipeClassifierTest {
         assertEquals('ㅘ', via(3f to -40f, 38f to -6f))
     }
 
+    @Test fun woIsUSpotThenEoSpot() {
+        // '워·줘': ㅜ자리에 갔다가 ㅓ자리(자음 왼쪽)로 올라오며 이동
+        assertEquals('ㅝ', via(0f to 45f, -42f to 5f))
+        assertEquals('ㅝ', via(-3f to 40f, -38f to -6f))
+        assertEquals('ㅝ', via(4f to 42f, -40f to 10f))
+    }
+
     @Test fun anthemTypo_thumbDrift() {
         // '마·나·다'가 '미·니·디'로: 오른쪽으로 밀 때 엄지가 아래로 휨
         assertEquals('ㅏ', vowel(40f to 17f))
