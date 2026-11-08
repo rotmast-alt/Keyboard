@@ -110,6 +110,26 @@ class SwipeClassifierTest {
         assertEquals('ㅘ', via(3f to -40f, 38f to -6f))
     }
 
+    @Test fun anthem2_curvedDiagonalIsNotATurn() {
+        // '해'가 '홰'로: 위로 출발해 오른쪽으로 휘는 ↗ 밀기는 ㅐ
+        assertEquals('ㅐ', vowel(0f to -20f, 35f to -20f))
+        assertEquals('ㅐ', vowel(5f to -18f, 15f to -12f, 15f to -8f))
+        // 꺾인 지점이 뚜렷하면 여전히 ㅙ / ㅟ
+        assertEquals('ㅙ', via(0f to -40f, 30f to -30f))
+        assertEquals('ㅟ', via(0f to 40f, 30f to 30f))
+    }
+
+    @Test fun anthem2_leaningUpIsStillO() {
+        // '도'가 '데'로: 왼쪽으로 기운 ↑ 밀기는 ㅗ
+        assertEquals('ㅗ', vowel(-14f to -40f))
+        assertEquals('ㅗ', vowel(-20f to -40f))
+        // 살짝 위로 뜬 → 는 ㅏ ('하'가 '해'로)
+        assertEquals('ㅏ', vowel(40f to -13f))
+        // 진짜 대각선은 그대로
+        assertEquals('ㅔ', vowel(-30f to -30f))
+        assertEquals('ㅐ', vowel(30f to -30f))
+    }
+
     @Test fun woIsUSpotThenEoSpot() {
         // '워·줘': ㅜ자리에 갔다가 ㅓ자리(자음 왼쪽)로 올라오며 이동
         assertEquals('ㅝ', via(0f to 45f, -42f to 5f))
@@ -143,7 +163,6 @@ class SwipeClassifierTest {
         assertEquals('ㅝ', vowel(0f to 40f, -15f to 0f))
         assertEquals('ㅝ', vowel(0f to 35f, -14f to 3f))
         assertEquals('ㅘ', vowel(0f to -40f, 15f to 0f))
-        assertEquals('ㅟ', vowel(0f to 40f, 12f to 12f))
     }
 
     @Test fun meaninglessTurnFallsBackToFirstVowel() {

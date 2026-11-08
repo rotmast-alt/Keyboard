@@ -53,23 +53,25 @@ sealed interface Gesture {
 class SwipeClassifier(var tapSlop: Float, var longDistance: Float) {
 
     /**
-     * 오른손 엄지는 화면에서 시계방향으로 휘게 미는 경향이 있다
-     * (→가 ↘로, ↙가 ←로 읽히던 오타). 측정한 각도를 이만큼 반시계방향으로 보정한다.
-     */
-    var angleBiasDeg = 10.0
-
-    /**
-     * 8방향 판정. 상하좌우(ㅏㅓㅗㅜ)는 ±27°, 대각선(ㅐㅔㅣㅡ)은 ±18°로
-     * 자주 쓰는 상하좌우를 넓게 잡는다.
+     * 8방향 판정. 각 방향이 시작하는 각도(수학 좌표, 반시계방향)를 오른손 엄지 습관에 맞춰 잡았다.
+     *  - → 는 아래로 많이 처져도 →  (마→미 오타)
+     *  - ↑ 는 왼쪽으로 기울어도 ↑  (도→데 오타)
+     *  - ↙ 는 조금 얕아도 ↙        (르→러 오타)
+     *  상하좌우(ㅏㅓㅗㅜ)는 넓게, 대각선(ㅐㅔㅣㅡ)은 조금 좁게.
      */
     fun quantize(dx: Float, dy: Float): Direction {
-        val deg = (Math.toDegrees(atan2(-dy.toDouble(), dx.toDouble())) + angleBiasDeg + 720.0) % 360.0
-        for (d in Direction.entries) {
-            val half = if (d.ordinal % 2 == 0) CARDINAL_HALF_DEG else DIAGONAL_HALF_DEG
-            val diff = abs(((deg - d.angleDeg + 540.0) % 360.0) - 180.0)
-            if (diff <= half) return d
+        val deg = (Math.toDegrees(atan2(-dy.toDouble(), dx.toDouble())) + 360.0) % 360.0
+        return when {
+            deg < 20.0 -> Direction.E
+            deg < 62.0 -> Direction.NE
+            deg < 122.0 -> Direction.N
+            deg < 158.0 -> Direction.NW
+            deg < 200.0 -> Direction.W
+            deg < 245.0 -> Direction.SW
+            deg < 295.0 -> Direction.S
+            deg < 328.0 -> Direction.SE
+            else -> Direction.E
         }
-        return Direction.of(dx, dy)
     }
 
     fun classify(path: List<Pt>): Gesture {
@@ -79,7 +81,17 @@ class SwipeClassifier(var tapSlop: Float, var longDistance: Float) {
         val firstFar = path.firstOrNull { dist(it, start) >= tapSlop } ?: return Gesture.Tap
         val initial = quantize(firstFar.x - start.x, firstFar.y - start.y)
 
-        val corner = findCorner(path, initial)
+        var corner = findCorner(path, initial)
+        // ㅙ(ㅗ→ㅐ)·ㅟ(ㅜ→ㅣ)처럼 45°만 꺾는 겹모음은 휘어진 대각선 밀기와 헷갈리므로
+        // 꺾인 지점이 뚜렷할 때만 꺾기로 본다 (해→홰 오타)
+        if (corner != null && dist(start, end) >= tapSlop) {
+            val c = corner
+            val f = quantize(c.x - start.x, c.y - start.y)
+            val pos = quantize(end.x - start.x, end.y - start.y)
+            if (pos != f && isAdjacent(f, pos) && deviation(start, end, c) < max(tapSlop * 0.8f, dist(start, end) * 0.25f)) {
+                corner = null
+            }
+        }
         val first = if (corner == null) {
             quantize(end.x - start.x, end.y - start.y)
         } else {
@@ -136,9 +148,16 @@ class SwipeClassifier(var tapSlop: Float, var longDistance: Float) {
     /** 꺾은 뒤 이만큼만 움직여도 꺾기로 본다 (짧게 꺾는 ㅝ·ㅘ 대비) */
     private val turnSlop: Float get() = tapSlop * 0.6f
 
-    private companion object {
-        const val CARDINAL_HALF_DEG = 27.0
-        const val DIAGONAL_HALF_DEG = 18.0
+    private fun isAdjacent(a: Direction, b: Direction): Boolean {
+        val d = abs(a.ordinal - b.ordinal)
+        return d == 1 || d == 7
+    }
+
+    /** 점 p가 직선 a→b에서 벗어난 거리 */
+    private fun deviation(a: Pt, b: Pt, p: Pt): Float {
+        val len = dist(a, b)
+        if (len == 0f) return dist(a, p)
+        return abs((b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x)) / len
     }
 
     private fun dist(a: Pt, b: Pt) = hypot(a.x - b.x, a.y - b.y)

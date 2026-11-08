@@ -624,7 +624,16 @@ class KeyboardView(context: Context) : View(context) {
             if (variant == null) continue
             val target = rows.getOrNull(row + dr)?.getOrNull(col + dc) ?: continue
             if (target.kind != KeyKind.CONSONANT) continue
-            val index = closestIndex(p.path, target.rect.centerX(), target.rect.centerY(), radius) ?: continue
+            val cx = target.rect.centerX()
+            val cy = target.rect.centerY()
+            val closest = closestIndex(p.path, cx, cy, radius) ?: continue
+            // 목표 키를 살짝 지나쳤다가 방향을 틀었으면, 튼 지점부터 모음으로 읽는다
+            // (지나친 뒤 되돌아오는 곡선이 모음 판정에 섞이던 해→홰, 하→해 오타)
+            val turn = p.path.indices.maxBy { p.path[it].x * dc + p.path[it].y * dr }
+            val turnPt = p.path[turn]
+            val end = p.path.last()
+            val turnedBack = turn >= closest && hypot(end.x - turnPt.x, end.y - turnPt.y) >= classifier.tapSlop * 0.6f
+            val index = if (turnedBack && hypot(turnPt.x - cx, turnPt.y - cy) <= radius * 1.3f) turn else closest
             return variant to index
         }
         return null
