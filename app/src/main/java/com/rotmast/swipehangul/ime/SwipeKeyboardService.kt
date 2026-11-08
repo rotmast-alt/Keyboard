@@ -154,6 +154,11 @@ class SwipeKeyboardService : InputMethodService(), KeyboardView.Listener {
 
     override fun onFlush() = flush()
 
+    override fun onEditAction(id: Int) {
+        flush()
+        currentInputConnection?.performContextMenuAction(id)
+    }
+
     override fun onOpenSettings() {
         requestHideSelf(0)
         startActivity(

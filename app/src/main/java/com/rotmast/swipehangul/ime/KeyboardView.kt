@@ -44,6 +44,8 @@ class KeyboardView(context: Context) : View(context) {
         fun onCursorMove(delta: Int)
         fun onFlush()
         fun onOpenSettings()
+        /** android.R.id.selectAll / copy / paste */
+        fun onEditAction(id: Int)
     }
 
     var listener: Listener? = null
@@ -262,7 +264,8 @@ class KeyboardView(context: Context) : View(context) {
     private fun drawKey(canvas: Canvas, key: Key, pressed: Boolean) {
         val r = key.rect
         val active = isActive(key)
-        val isLetter = key.kind == KeyKind.CONSONANT || key.kind == KeyKind.CHAR || key.kind == KeyKind.SPACE
+        val isLetter = key.kind == KeyKind.CONSONANT || key.kind == KeyKind.CHAR ||
+            key.kind == KeyKind.SPACE || key.kind == KeyKind.NUM_PAD
         if (colorShadow != 0) {
             fillPaint.color = colorShadow
             tmpRect.set(r.left, r.top + dp(1f), r.right, r.bottom + dp(1f))
@@ -281,6 +284,7 @@ class KeyboardView(context: Context) : View(context) {
             KeyKind.BACKSPACE -> drawBackspace(canvas, r)
             KeyKind.SPACE -> drawSpace(canvas, r)
             KeyKind.ENTER -> drawEnter(canvas, r)
+            KeyKind.NUM_PAD -> drawNumPad(canvas, r)
             KeyKind.CONSONANT, KeyKind.CHAR -> {
                 val label = displayLabel(key)
                 labelPaint.typeface = Typeface.DEFAULT
@@ -296,16 +300,35 @@ class KeyboardView(context: Context) : View(context) {
             else -> {
                 labelPaint.typeface = Typeface.DEFAULT
                 labelPaint.color = if (active) colorActiveText else colorFunc
-                labelPaint.textSize = if (mode == Mode.HANGUL) dp(17f) else dp(16f)
+                labelPaint.textSize = if (mode == Mode.HANGUL) dp(16f) else dp(15f)
                 val label = displayLabel(key)
-                if (key.flicks.isEmpty()) {
-                    drawCenteredText(canvas, label, r.centerX(), r.centerY(), labelPaint)
+                if (label.length >= 4 && ' ' !in label) {
+                    // '전체선택', '붙여넣기'는 두 줄로
+                    labelPaint.textSize = dp(14f)
+                    val half = label.length / 2
+                    val gap = labelPaint.textSize * 0.6f
+                    drawCenteredText(canvas, label.substring(0, half), r.centerX(), r.centerY() - gap, labelPaint)
+                    drawCenteredText(canvas, label.substring(half), r.centerX(), r.centerY() + gap, labelPaint)
                 } else {
                     drawCenteredText(canvas, label, r.centerX(), r.centerY(), labelPaint)
                 }
             }
         }
-        if (key.flicks.isNotEmpty()) drawFlickHints(canvas, key)
+        if (key.flicks.isNotEmpty() && key.kind != KeyKind.NUM_PAD) drawFlickHints(canvas, key)
+    }
+
+    /** 숫자 키: 작은 3×3 키패드 모양. 가운데 5가 탭, 나머지는 그 방향으로 밀기 */
+    private fun drawNumPad(canvas: Canvas, r: RectF) {
+        val stepX = min(r.width() * 0.3f, dp(15f))
+        val stepY = min(r.height() * 0.27f, dp(14f))
+        for (row in 0..2) for (col in 0..2) {
+            val digit = (row * 3 + col + 1).toString()
+            val center = digit == "5"
+            labelPaint.typeface = if (center) Typeface.DEFAULT_BOLD else Typeface.DEFAULT
+            labelPaint.color = if (center) colorText else colorHint
+            labelPaint.textSize = if (center) dp(17f) else dp(12f)
+            drawCenteredText(canvas, digit, r.centerX() + (col - 1) * stepX, r.centerY() + (row - 1) * stepY, labelPaint)
+        }
     }
 
     private fun drawCenteredText(canvas: Canvas, text: String, x: Float, y: Float, paint: Paint) {
@@ -421,11 +444,19 @@ class KeyboardView(context: Context) : View(context) {
         KeyKind.VOWEL_PAD -> (classifier.classify(p.path) as? Gesture.Swipe)?.let { SwipeVowels.resolve(it).toString() }
         KeyKind.SPACE -> if (p.cursorMode) "◀ ▶" else null
         KeyKind.BACKSPACE -> if (!p.repeating && p.moved && isLeftward(p)) "단어 지우기" else null
+        KeyKind.NUM_PAD -> when {
+            p.moved -> flickText(p)
+            p.longPressed -> "숫자판"
+            else -> null
+        }
         else -> if (p.key.flicks.isNotEmpty() && p.moved) flickText(p) else null
     }
 
     private fun flickText(p: Pointer): String? {
         val g = classifier.classify(p.path) as? Gesture.Swipe ?: return null
+        if (p.key.kind == KeyKind.NUM_PAD && g.first == Direction.S && (g.long || g.second == Direction.N)) {
+            return "0" // 키패드에서 0은 8 아래: ↓ 길게 밀기 또는 ↓ 갔다 돌아오기
+        }
         return p.key.flicks[g.first]
     }
 
@@ -473,6 +504,7 @@ class KeyboardView(context: Context) : View(context) {
             KeyKind.CONSONANT ->
                 if (Jamo.aspirate(key.text[0]) != null) postDelayed(p.longPressAction, LONG_PRESS_MS)
             KeyKind.BACKSPACE -> postDelayed(p.repeatAction, REPEAT_DELAY_MS)
+            KeyKind.NUM_PAD -> postDelayed(p.longPressAction, NUM_PAD_LONG_PRESS_MS)
             else -> Unit
         }
     }
@@ -561,6 +593,11 @@ class KeyboardView(context: Context) : View(context) {
                 l.onFlush()
                 l.onOpenSettings()
             }
+            // 숫자 키 탭은 5, 길게 누르면 숫자판
+            KeyKind.NUM_PAD -> if (p.longPressed) switchTo(Mode.NUMBERS) else l.onText("5")
+            KeyKind.SELECT_ALL -> l.onEditAction(android.R.id.selectAll)
+            KeyKind.COPY -> l.onEditAction(android.R.id.copy)
+            KeyKind.PASTE -> l.onEditAction(android.R.id.paste)
             KeyKind.PAGE -> {
                 symbolPage = 1 - symbolPage
                 rebuild()
@@ -700,6 +737,7 @@ class KeyboardView(context: Context) : View(context) {
     private companion object {
         const val PREF_FIVE_ROWS = KeyboardPrefs.FIVE_ROWS
         const val LONG_PRESS_MS = 300L
+        const val NUM_PAD_LONG_PRESS_MS = 450L
         const val REPEAT_DELAY_MS = 400L
         const val REPEAT_INTERVAL_MS = 50L
         const val DOUBLE_TAP_MS = 300L

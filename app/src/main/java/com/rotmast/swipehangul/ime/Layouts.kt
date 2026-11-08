@@ -2,11 +2,19 @@ package com.rotmast.swipehangul.ime
 
 import android.graphics.RectF
 import com.rotmast.swipehangul.gesture.Direction
+import com.rotmast.swipehangul.gesture.Direction.E
 import com.rotmast.swipehangul.gesture.Direction.N
+import com.rotmast.swipehangul.gesture.Direction.NE
+import com.rotmast.swipehangul.gesture.Direction.NW
+import com.rotmast.swipehangul.gesture.Direction.S
+import com.rotmast.swipehangul.gesture.Direction.SE
+import com.rotmast.swipehangul.gesture.Direction.SW
+import com.rotmast.swipehangul.gesture.Direction.W
 
 enum class KeyKind {
-    CONSONANT, CHAR, BACKSPACE, ENTER, SPACE, REPEAT, VOWEL_PAD,
+    CONSONANT, CHAR, BACKSPACE, ENTER, SPACE, REPEAT, VOWEL_PAD, NUM_PAD,
     TO_NUMBERS, TO_SYMBOLS, LANG, TO_LETTERS, SETTINGS, PAGE, SHIFT, SPACER,
+    SELECT_ALL, COPY, PASTE,
 }
 
 /**
@@ -28,8 +36,8 @@ enum class Mode { HANGUL, ENGLISH, NUMBERS, SYMBOLS }
  * 오른손 엄지 기준으로 배치한다.
  *  - 가장 자주 쓰는 ⌫ 반복 . ↵ 는 맨 오른쪽 열
  *  - 스페이스는 아래 줄을 넓게 (좌우로 밀면 커서 이동)
- *  - 가끔 쓰는 한/영 123 기호 모음 , ? 는 엄지에서 먼 왼쪽 두 열
- *  - 맨 왼쪽 한 열은 비워 둔다 (7칸)
+ *  - 가끔 쓰는 한/영 숫자 기호 모음 , ? ~ 는 그 왼쪽 두 열
+ *  - 가장 먼 맨 왼쪽 열에는 드물게 쓰는 편집 키(전체선택·복사·붙여넣기)와 설정
  */
 object Layouts {
     /** 한글·숫자·기호 자판은 맨 왼쪽에 빈 칸을 하나 두어 키 전체를 오른쪽으로 민다 (7칸) */
@@ -44,20 +52,27 @@ object Layouts {
     private fun space(weight: Float) = Key(KeyKind.SPACE, text = " ", weight = weight)
     private val period get() = Key(KeyKind.CHAR, ".", flicks = mapOf(N to "!"))
 
+    /** 숫자 키: 탭 5, 전화 키패드 배치대로 밀기. ↓를 길게 밀거나 ↓ 갔다 돌아오면 0 */
+    val NUM_PAD_DIGITS = mapOf(
+        NW to "1", N to "2", NE to "3",
+        W to "4", E to "6",
+        SW to "7", S to "8", SE to "9",
+    )
+
     /**
-     *  (빈칸) 한/영  123   ㄱ  ㄴ  ㄷ  ⌫
-     *  (빈칸) 기호   모음  ㄹ  ㅁ  ㅇ  반복
-     *  (빈칸) ,      ?     ㅂ  ㅅ  ㅈ  .
-     * ((빈칸)        ㅋ    ㅌ  ㅊ  ㅍ  ㅎ)   ← 5줄 모드 (설정에서 켬)
-     *  (빈칸) 설정   [    스페이스     ]  ↵
+     *  전체선택  한/영  기호   ㄱ  ㄴ  ㄷ  ⌫
+     *  복사      숫자   모음   ㄹ  ㅁ  ㅇ  반복
+     *  붙여넣기  ,      ?      ㅂ  ㅅ  ㅈ  .
+     * (                 ㅋ    ㅌ  ㅊ  ㅍ  ㅎ)   ← 5줄 모드 (설정에서 켬)
+     *  설정      ~      [    스페이스     ]  ↵
      */
-    fun hangul(fiveRows: Boolean): List<List<Key>> = rightAligned(buildList {
-        add(listOf(Key(KeyKind.LANG, "한/영"), Key(KeyKind.TO_NUMBERS, "123"), c("ㄱ"), c("ㄴ"), c("ㄷ"), backspace))
-        add(listOf(Key(KeyKind.TO_SYMBOLS, "기호"), Key(KeyKind.VOWEL_PAD, "모음"), c("ㄹ"), c("ㅁ"), c("ㅇ"), Key(KeyKind.REPEAT, "반복")))
-        add(listOf(t(","), t("?"), c("ㅂ"), c("ㅅ"), c("ㅈ"), period))
-        if (fiveRows) add(listOf(Key(KeyKind.SPACER), c("ㅋ"), c("ㅌ"), c("ㅊ"), c("ㅍ"), c("ㅎ")))
-        add(listOf(Key(KeyKind.SETTINGS, "설정"), space(4f), enter))
-    })
+    fun hangul(fiveRows: Boolean): List<List<Key>> = buildList {
+        add(listOf(Key(KeyKind.SELECT_ALL, "전체선택"), Key(KeyKind.LANG, "한/영"), Key(KeyKind.TO_SYMBOLS, "기호"), c("ㄱ"), c("ㄴ"), c("ㄷ"), backspace))
+        add(listOf(Key(KeyKind.COPY, "복사"), Key(KeyKind.NUM_PAD, "5", flicks = NUM_PAD_DIGITS), Key(KeyKind.VOWEL_PAD, "모음"), c("ㄹ"), c("ㅁ"), c("ㅇ"), Key(KeyKind.REPEAT, "반복")))
+        add(listOf(Key(KeyKind.PASTE, "붙여넣기"), t(","), t("?"), c("ㅂ"), c("ㅅ"), c("ㅈ"), period))
+        if (fiveRows) add(listOf(Key(KeyKind.SPACER), Key(KeyKind.SPACER), c("ㅋ"), c("ㅌ"), c("ㅊ"), c("ㅍ"), c("ㅎ")))
+        add(listOf(Key(KeyKind.SETTINGS, "설정"), Key(KeyKind.CHAR, "~", flicks = mapOf(N to "^^")), space(4f), enter))
+    }
 
     fun english(): List<List<Key>> = listOf(
         chars("qwertyuiop"),
