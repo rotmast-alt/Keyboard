@@ -304,7 +304,13 @@ class KeyboardView(context: Context) : View(context) {
                 labelPaint.color = if (active) colorActiveText else colorFunc
                 labelPaint.textSize = if (mode == Mode.HANGUL) dp(16f) else dp(15f)
                 val label = displayLabel(key)
-                if (label.length >= 4 && ' ' !in label) {
+                if (key.kind == KeyKind.PAGE) {
+                    labelPaint.textSize = dp(14f)
+                    val gap = labelPaint.textSize * 0.6f
+                    drawCenteredText(canvas, "넘기기", r.centerX(), r.centerY() - gap, labelPaint)
+                    labelPaint.color = colorHint
+                    drawCenteredText(canvas, label, r.centerX(), r.centerY() + gap, labelPaint)
+                } else if (label.length >= 4 && ' ' !in label) {
                     // '전체선택', '붙여넣기'는 두 줄로
                     labelPaint.textSize = dp(14f)
                     val half = label.length / 2
@@ -622,7 +628,7 @@ class KeyboardView(context: Context) : View(context) {
             KeyKind.UNDO -> l.onEditAction(android.R.id.undo)
             KeyKind.CURSOR_LEFT, KeyKind.CURSOR_RIGHT -> if (!p.repeating) fireRepeatable(key)
             KeyKind.PAGE -> {
-                symbolPage = 1 - symbolPage
+                symbolPage = (symbolPage + 1) % Layouts.SYMBOL_PAGES.size
                 rebuild()
             }
             KeyKind.SPACER -> Unit
