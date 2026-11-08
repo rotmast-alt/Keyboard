@@ -59,7 +59,10 @@ class SwipeClassifier(var tapSlop: Float, var longDistance: Float) {
         } else {
             Direction.of(corner.x - start.x, corner.y - start.y)
         }
-        val second = corner?.let { Direction.of(end.x - it.x, end.y - it.y) }?.takeIf { it != first }
+        val second = corner
+            ?.takeIf { dist(it, end) >= turnSlop }
+            ?.let { Direction.of(end.x - it.x, end.y - it.y) }
+            ?.takeIf { it != first }
 
         val reach = path.maxOf { (it.x - start.x) * first.unitX + (it.y - start.y) * first.unitY }
         // 밀었다가 출발한 자음 쪽으로 되돌아왔으면 방향이 조금 틀어져도 "되돌아오기"로 본다
@@ -89,8 +92,8 @@ class SwipeClassifier(var tapSlop: Float, var longDistance: Float) {
                     best = p
                 }
             }
-            if (best != null && bestDev >= max(tapSlop * 0.5f, chord * 0.15f) &&
-                dist(best, end) >= tapSlop && dist(best, start) >= tapSlop
+            if (best != null && bestDev >= max(tapSlop * 0.4f, chord * 0.15f) &&
+                dist(best, end) >= turnSlop && dist(best, start) >= tapSlop
             ) {
                 return best
             }
@@ -99,6 +102,9 @@ class SwipeClassifier(var tapSlop: Float, var longDistance: Float) {
         val far = path.maxBy { (it.x - start.x) * initial.unitX + (it.y - start.y) * initial.unitY }
         return if (dist(far, end) >= tapSlop && dist(far, start) >= tapSlop) far else null
     }
+
+    /** 꺾은 뒤 이만큼만 움직여도 꺾기로 본다 (짧게 꺾는 ㅝ·ㅘ 대비) */
+    private val turnSlop: Float get() = tapSlop * 0.6f
 
     private fun dist(a: Pt, b: Pt) = hypot(a.x - b.x, a.y - b.y)
 }

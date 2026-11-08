@@ -98,6 +98,14 @@ class SwipeClassifierTest {
         assertEquals('ㅜ', SwipeVowels.resolve(g))
     }
 
+    @Test fun shortTurnStillMakesCompoundVowel() {
+        // ↓로 내려갔다가 ←로 조금만 꺾어도 ㅝ (ㅡ나 ㅜ가 되면 안 됨)
+        assertEquals('ㅝ', vowel(0f to 40f, -15f to 0f))
+        assertEquals('ㅝ', vowel(0f to 35f, -14f to 3f))
+        assertEquals('ㅘ', vowel(0f to -40f, 15f to 0f))
+        assertEquals('ㅟ', vowel(0f to 40f, 12f to 12f))
+    }
+
     @Test fun meaninglessTurnFallsBackToFirstVowel() {
         assertEquals('ㅏ', vowel(40f to 0f, 0f to 40f))
     }

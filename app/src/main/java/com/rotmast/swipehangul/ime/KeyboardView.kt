@@ -212,8 +212,8 @@ class KeyboardView(context: Context) : View(context) {
             }
             top += rowHeight
         }
-        // 스와이프 판정 거리는 키 크기(5칸 기준)에 비례
-        val keyWidth = (width - side * 2) / 5f
+        // 스와이프 판정 거리는 키 크기(6칸 기준)에 비례
+        val keyWidth = (width - side * 2) / 6f
         classifier.tapSlop = max(dp(14f), keyWidth * 0.25f)
         classifier.longDistance = max(dp(56f), keyWidth * 1.0f)
     }
@@ -222,7 +222,10 @@ class KeyboardView(context: Context) : View(context) {
         var best: Key? = null
         var bestDist = Float.MAX_VALUE
         for (row in rows) for (key in row) {
-            if (key.kind == KeyKind.SPACER) continue
+            if (key.kind == KeyKind.SPACER) {
+                if (key.rect.contains(x, y)) return null // 빈칸을 누르면 무시
+                continue
+            }
             val r = key.rect
             val dx = max(0f, max(r.left - x, x - r.right))
             val dy = max(0f, max(r.top - y, y - r.bottom))
