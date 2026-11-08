@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">스와이프 한글</string>
+    <string name="ime_name">스와이프 한글 키보드</string>
+    <string name="subtype_ko">한국어 (스와이프)</string>
+</resources>
