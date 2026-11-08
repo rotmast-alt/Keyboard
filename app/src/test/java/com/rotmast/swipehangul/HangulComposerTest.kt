@@ -17,6 +17,10 @@ class HangulComposerTest {
         fun tap(c: Char) = apply { val r = composer.inputConsonant(c); committed.append(r.commit); composing = r.composing }
         fun swipe(c: Char, v: Char) = apply { val r = composer.inputSyllable(c, v); committed.append(r.commit); composing = r.composing }
         fun vowel(v: Char) = apply { val r = composer.inputVowel(v); committed.append(r.commit); composing = r.composing }
+        fun rep() = apply {
+            val r = composer.tenseLast() ?: composer.repeat()!!
+            committed.append(r.commit); composing = r.composing
+        }
         fun back() = apply {
             val r = composer.backspace()
             if (r == null) { if (committed.isNotEmpty()) committed.setLength(committed.length - 1) } else composing = r.composing
@@ -86,5 +90,25 @@ class HangulComposerTest {
         assertEquals("나", e.text)
         e.back()
         assertEquals("", e.text)
+    }
+
+    @Test fun repeatKeyMakesTenseThenRepeats() {
+        assertEquals("까", Editor().swipe('ㄱ', 'ㅏ').rep().text)
+        assertEquals("갂", Editor().swipe('ㄱ', 'ㅏ').tap('ㄱ').rep().text)
+        assertEquals("있", Editor().swipe('ㅇ', 'ㅣ').tap('ㅅ').rep().text)
+        assertEquals("ㄲ", Editor().tap('ㄱ').rep().text)
+        assertEquals("ㅋㅋㅋ", Editor().tap('ㅋ').rep().rep().text)
+        assertEquals("하하", Editor().swipe('ㅎ', 'ㅏ').rep().text)
+        // 반복 뒤에도 받침을 붙일 수 있다
+        assertEquals("하한", Editor().swipe('ㅎ', 'ㅏ').rep().tap('ㄴ').text)
+        // ㄷ 받침은 된소리 받침이 없으므로 반복
+        assertEquals("갇갇", Editor().swipe('ㄱ', 'ㅏ').tap('ㄷ').rep().text)
+    }
+
+    @Test fun aspirate() {
+        assertEquals('ㅋ', Jamo.aspirate('ㄱ'))
+        assertEquals('ㅎ', Jamo.aspirate('ㅇ'))
+        assertEquals('ㅆ', Jamo.aspirate('ㅅ'))
+        assertNull(Jamo.aspirate('ㄴ'))
     }
 }

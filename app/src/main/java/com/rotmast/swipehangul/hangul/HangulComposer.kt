@@ -84,6 +84,29 @@ class HangulComposer {
     }
 
     /**
+     * 마지막 자음을 된소리로 바꾼다. 받침이 있으면 받침(각→갂, 갓→갔), 없으면 초성(가→까, ㄱ→ㄲ).
+     * 바꿀 수 없으면 null.
+     */
+    fun tenseLast(): EditResult? {
+        val currentJong = jong
+        if (currentJong != null) {
+            val t = Jamo.tense(currentJong)?.takeIf { Jamo.isJongseong(it) } ?: return null
+            jong = t
+            return EditResult("", composingText())
+        }
+        val currentCho = cho ?: return null
+        cho = Jamo.tense(currentCho) ?: return null
+        return EditResult("", composingText())
+    }
+
+    /** 조합 중인 글자를 확정하고 같은 글자를 다시 조합 상태로 둔다 (하 → 하하). */
+    fun repeat(): EditResult? {
+        if (!isComposing) return null
+        val text = composingText()
+        return EditResult(text, text)
+    }
+
+    /**
      * 자모 단위로 지운다(값→갑→가→ㄱ, 과→고→ㄱ).
      * 조합 중인 글자가 없으면 null을 돌려주고, 호출한 쪽이 일반 삭제를 처리한다.
      */

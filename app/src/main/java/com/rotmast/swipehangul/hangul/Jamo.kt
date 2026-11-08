@@ -20,6 +20,10 @@ object Jamo {
 
     private val TENSE = mapOf('ㄱ' to 'ㄲ', 'ㄷ' to 'ㄸ', 'ㅂ' to 'ㅃ', 'ㅅ' to 'ㅆ', 'ㅈ' to 'ㅉ')
 
+    private val ASPIRATED = mapOf(
+        'ㄱ' to 'ㅋ', 'ㄷ' to 'ㅌ', 'ㅂ' to 'ㅍ', 'ㅈ' to 'ㅊ', 'ㅇ' to 'ㅎ', 'ㅅ' to 'ㅆ',
+    )
+
     private val IOTIZED = mapOf(
         'ㅏ' to 'ㅑ', 'ㅓ' to 'ㅕ', 'ㅗ' to 'ㅛ', 'ㅜ' to 'ㅠ', 'ㅐ' to 'ㅒ', 'ㅔ' to 'ㅖ',
     )
@@ -45,6 +49,9 @@ object Jamo {
 
     /** ㄱ→ㄲ 처럼 된소리로 바꾼다. 없으면 null. */
     fun tense(c: Char): Char? = TENSE[c]
+
+    /** 길게 누른 자음: ㄱ→ㅋ, ㄷ→ㅌ, ㅂ→ㅍ, ㅈ→ㅊ, ㅇ→ㅎ, ㅅ→ㅆ. 없으면 null. */
+    fun aspirate(c: Char): Char? = ASPIRATED[c]
 
     /** ㅏ→ㅑ 처럼 이중모음(y계열)으로 바꾼다. 없으면 null. */
     fun iotize(v: Char): Char? = IOTIZED[v]

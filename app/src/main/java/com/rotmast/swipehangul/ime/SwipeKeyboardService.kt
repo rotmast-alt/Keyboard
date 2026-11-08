@@ -51,7 +51,7 @@ class SwipeKeyboardService : InputMethodService(), KeyboardView.Listener {
         val variation = info.inputType and InputType.TYPE_MASK_VARIATION
         return when {
             cls == InputType.TYPE_CLASS_NUMBER || cls == InputType.TYPE_CLASS_PHONE ||
-                cls == InputType.TYPE_CLASS_DATETIME -> Mode.SYMBOLS
+                cls == InputType.TYPE_CLASS_DATETIME -> Mode.NUMBERS
             cls == InputType.TYPE_CLASS_TEXT && variation in ENGLISH_VARIATIONS -> Mode.ENGLISH
             else -> Mode.HANGUL
         }
@@ -106,6 +106,24 @@ class SwipeKeyboardService : InputMethodService(), KeyboardView.Listener {
         val before = ic.getTextBeforeCursor(64, 0) ?: return
         val n = TextEdit.wordDeleteLength(before)
         if (n > 0) ic.deleteSurroundingText(n, 0)
+    }
+
+    /** 반복 키: 마지막 자음을 된소리로(가→까, 갓→갔), 안 되면 글자를 한 번 더(ㅋ→ㅋㅋ). */
+    override fun onRepeat() {
+        val result = composer.tenseLast() ?: composer.repeat()
+        if (result != null) {
+            apply(result)
+            return
+        }
+        val ic = currentInputConnection ?: return
+        val before = ic.getTextBeforeCursor(2, 0) ?: return
+        if (before.isEmpty()) return
+        val last = if (before.length == 2 && Character.isSurrogatePair(before[0], before[1])) {
+            before.toString()
+        } else {
+            before.last().toString()
+        }
+        ic.commitText(last, 1)
     }
 
     override fun onSpace() = onText(" ")
