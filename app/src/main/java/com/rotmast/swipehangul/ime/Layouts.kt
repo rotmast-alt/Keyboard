@@ -34,7 +34,7 @@ enum class Mode { HANGUL, ENGLISH, NUMBERS, SYMBOLS }
 
 /**
  * 오른손 엄지 기준으로 배치한다.
- *  - 가장 자주 쓰는 ⌫ 반복 . ↵ 는 맨 오른쪽 열
+ *  - 가장 자주 쓰는 ⌫ ? . ↵ 는 맨 오른쪽 열
  *  - 스페이스는 ㅅ 아래, 커서 ← → 는 ㅂ·ㅈ 아래 (스페이스를 좌우로 밀어도 커서 이동)
  *  - 가끔 쓰는 한/영 숫자 기호 모음 , ? ~ 는 그 왼쪽 두 열
  *  - 가장 먼 맨 왼쪽 열에는 드물게 쓰는 편집 키(전체선택·복사·붙여넣기)와 설정
@@ -60,20 +60,20 @@ object Layouts {
     )
 
     /**
-     *  전체선택  한/영  기호   ㄱ  ㄴ  ㄷ  ⌫
-     *  복사      숫자   모음   ㄹ  ㅁ  ㅇ  반복
-     *  붙여넣기  ,      ?      ㅂ  ㅅ  ㅈ  .
+     *  전체선택  한/영     기호   ㄱ  ㄴ  ㄷ  ⌫
+     *  복사      숫자      모음   ㄹ  ㅁ  ㅇ  ?
+     *  붙여넣기  되돌리기  반복   ㅂ  ㅅ  ㅈ  .
      * (                 ㅋ    ㅌ  ㅊ  ㅍ  ㅎ)   ← 5줄 모드 (설정에서 켬)
-     *  설정      ~      되돌리기 ←  ␣  →  ↵
+     *  설정      ~         ,      ←  ␣  →  ↵
      */
     fun hangul(fiveRows: Boolean): List<List<Key>> = buildList {
         add(listOf(Key(KeyKind.SELECT_ALL, "전체선택"), Key(KeyKind.LANG, "한/영"), Key(KeyKind.TO_SYMBOLS, "기호"), c("ㄱ"), c("ㄴ"), c("ㄷ"), backspace))
-        add(listOf(Key(KeyKind.COPY, "복사"), Key(KeyKind.NUM_PAD, "5", flicks = NUM_PAD_DIGITS), Key(KeyKind.VOWEL_PAD, "모음"), c("ㄹ"), c("ㅁ"), c("ㅇ"), Key(KeyKind.REPEAT, "반복")))
-        add(listOf(Key(KeyKind.PASTE, "붙여넣기"), t(","), t("?"), c("ㅂ"), c("ㅅ"), c("ㅈ"), period))
+        add(listOf(Key(KeyKind.COPY, "복사"), Key(KeyKind.NUM_PAD, "5", flicks = NUM_PAD_DIGITS), Key(KeyKind.VOWEL_PAD, "모음"), c("ㄹ"), c("ㅁ"), c("ㅇ"), t("?")))
+        add(listOf(Key(KeyKind.PASTE, "붙여넣기"), Key(KeyKind.UNDO, "되돌리기"), Key(KeyKind.REPEAT, "반복"), c("ㅂ"), c("ㅅ"), c("ㅈ"), period))
         if (fiveRows) add(listOf(Key(KeyKind.SPACER), Key(KeyKind.SPACER), c("ㅋ"), c("ㅌ"), c("ㅊ"), c("ㅍ"), c("ㅎ")))
         add(
             listOf(
-                Key(KeyKind.SETTINGS, "설정"), t("~"), Key(KeyKind.UNDO, "되돌리기"),
+                Key(KeyKind.SETTINGS, "설정"), t("~"), t(","),
                 Key(KeyKind.CURSOR_LEFT), space(1f), Key(KeyKind.CURSOR_RIGHT), enter,
             ),
         )
