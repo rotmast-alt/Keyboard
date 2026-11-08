@@ -29,8 +29,12 @@ enum class Mode { HANGUL, ENGLISH, NUMBERS, SYMBOLS }
  *  - 가장 자주 쓰는 ⌫ 반복 . ↵ 는 맨 오른쪽 열
  *  - 스페이스는 아래 줄을 넓게 (좌우로 밀면 커서 이동)
  *  - 가끔 쓰는 한/영 123 기호 모음 , ? 는 엄지에서 먼 왼쪽 두 열
+ *  - 맨 왼쪽 한 열은 비워 둔다 (7칸)
  */
 object Layouts {
+    /** 한글·숫자·기호 자판은 맨 왼쪽에 빈 칸을 하나 두어 키 전체를 오른쪽으로 민다 (7칸) */
+    private fun rightAligned(rows: List<List<Key>>) = rows.map { listOf(Key(KeyKind.SPACER)) + it }
+
     private fun c(ch: String) = Key(KeyKind.CONSONANT, ch)
     private fun t(ch: String, weight: Float = 1f) = Key(KeyKind.CHAR, ch, weight = weight)
     private fun chars(s: String) = s.map { t(it.toString()) }
@@ -41,19 +45,19 @@ object Layouts {
     private val period get() = Key(KeyKind.CHAR, ".", flicks = mapOf(N to "!"))
 
     /**
-     *  한/영  123   ㄱ  ㄴ  ㄷ  ⌫
-     *  기호   모음  ㄹ  ㅁ  ㅇ  반복
-     *  ,      ?     ㅂ  ㅅ  ㅈ  .
-     * (       ㅋ    ㅌ  ㅊ  ㅍ  ㅎ)   ← 5줄 모드 (설정에서 켬)
-     *  설정   [    스페이스     ]  ↵
+     *  (빈칸) 한/영  123   ㄱ  ㄴ  ㄷ  ⌫
+     *  (빈칸) 기호   모음  ㄹ  ㅁ  ㅇ  반복
+     *  (빈칸) ,      ?     ㅂ  ㅅ  ㅈ  .
+     * ((빈칸)        ㅋ    ㅌ  ㅊ  ㅍ  ㅎ)   ← 5줄 모드 (설정에서 켬)
+     *  (빈칸) 설정   [    스페이스     ]  ↵
      */
-    fun hangul(fiveRows: Boolean): List<List<Key>> = buildList {
+    fun hangul(fiveRows: Boolean): List<List<Key>> = rightAligned(buildList {
         add(listOf(Key(KeyKind.LANG, "한/영"), Key(KeyKind.TO_NUMBERS, "123"), c("ㄱ"), c("ㄴ"), c("ㄷ"), backspace))
         add(listOf(Key(KeyKind.TO_SYMBOLS, "기호"), Key(KeyKind.VOWEL_PAD, "모음"), c("ㄹ"), c("ㅁ"), c("ㅇ"), Key(KeyKind.REPEAT, "반복")))
         add(listOf(t(","), t("?"), c("ㅂ"), c("ㅅ"), c("ㅈ"), period))
         if (fiveRows) add(listOf(Key(KeyKind.SPACER), c("ㅋ"), c("ㅌ"), c("ㅊ"), c("ㅍ"), c("ㅎ")))
         add(listOf(Key(KeyKind.SETTINGS, "설정"), space(4f), enter))
-    }
+    })
 
     fun english(): List<List<Key>> = listOf(
         chars("qwertyuiop"),
@@ -70,14 +74,14 @@ object Layouts {
     )
 
     /** 전화 키패드처럼 1~9를 가운데 세 열에, 0은 8 아래 */
-    fun numbers(): List<List<Key>> = listOf(
+    fun numbers(): List<List<Key>> = rightAligned(listOf(
         listOf(Key(KeyKind.TO_LETTERS), t("+"), t("1"), t("2"), t("3"), backspace),
         listOf(Key(KeyKind.TO_SYMBOLS, "기호"), t("-"), t("4"), t("5"), t("6"), t(",")),
         listOf(t("("), t(")"), t("7"), t("8"), t("9"), t(".")),
         listOf(t("*"), t("/"), t("="), t("0"), space(1f), enter),
-    )
+    ))
 
-    fun symbols(page: Int): List<List<Key>> = if (page == 0) {
+    fun symbols(page: Int): List<List<Key>> = rightAligned(if (page == 0) {
         listOf(
             chars("!?.,~") + backspace,
             chars("()@#&*"),
@@ -91,5 +95,5 @@ object Layouts {
             chars("|\\`♡☆") + Key(KeyKind.PAGE, "2/2"),
             listOf(Key(KeyKind.TO_LETTERS), t("·"), t("…"), space(2f), enter),
         )
-    }
+    })
 }

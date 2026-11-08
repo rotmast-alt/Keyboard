@@ -214,8 +214,8 @@ class KeyboardView(context: Context) : View(context) {
             }
             top += rowHeight
         }
-        // 스와이프 판정 거리는 키 크기(6칸 기준)에 비례
-        val keyWidth = (width - side * 2) / 6f
+        // 스와이프 판정 거리는 키 크기(7칸 기준)에 비례
+        val keyWidth = (width - side * 2) / 7f
         classifier.tapSlop = max(dp(14f), keyWidth * 0.25f)
         classifier.longDistance = max(dp(56f), keyWidth * 1.0f)
     }
