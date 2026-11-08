@@ -9,7 +9,7 @@ import com.rotmast.swipehangul.hangul.Jamo
  *  ←ㅓ   (탭)   →ㅏ
  *  ↙ㅡ   ↓ㅜ   ↘ㅣ
  *
- *  - 길게 밀기 또는 밀었다 되돌아오기: ㅑ ㅕ ㅛ ㅠ ㅒ ㅖ
+ *  - 밀었다가 자음으로 되돌아오기: ㅑ ㅕ ㅛ ㅠ ㅒ ㅖ
  *  - 꺾기: 두 모음을 합친다. ↑→ ㅘ, ↑↗ ㅙ, ↑↘ ㅚ, ↓← ㅝ, ↓↖ ㅞ, ↓↘ ㅟ, ↙↘ ㅢ
  */
 object SwipeVowels {
@@ -33,7 +33,6 @@ object SwipeVowels {
             }
             Jamo.combineJung(v1, base(second))?.let { return it }
         }
-        if (g.long) Jamo.iotize(v1)?.let { return it }
         return v1
     }
 }

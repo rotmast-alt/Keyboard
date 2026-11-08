@@ -57,19 +57,26 @@ class SwipeClassifierTest {
         assertEquals('ㅏ', vowel(40f to 8f, 10f to -6f))
     }
 
-    @Test fun longSwipeIotizes() {
-        assertEquals('ㅑ', vowel(100f to 0f))
-        assertEquals('ㅕ', vowel(-100f to 0f))
-        assertEquals('ㅛ', vowel(0f to -100f))
-        assertEquals('ㅠ', vowel(0f to 100f))
-        assertEquals('ㅒ', vowel(70f to -70f))
-        assertEquals('ㅖ', vowel(-70f to -70f))
-        assertEquals('ㅣ', vowel(70f to 70f)) // ㅣ는 길게 밀어도 ㅣ
+    @Test fun longSwipeKeepsBaseVowel() {
+        assertEquals('ㅏ', vowel(100f to 0f))
+        assertEquals('ㅗ', vowel(0f to -100f))
+        assertEquals('ㅣ', vowel(70f to 70f))
     }
 
     @Test fun swipeAndReturnIotizes() {
         assertEquals('ㅑ', vowel(40f to 0f, -40f to 0f))
         assertEquals('ㅠ', vowel(0f to 40f, 0f to -40f))
+        assertEquals('ㅛ', vowel(0f to -40f, 0f to 40f))
+        assertEquals('ㅕ', vowel(-40f to 0f, 40f to 0f))
+        assertEquals('ㅒ', vowel(30f to -30f, -30f to 30f))
+    }
+
+    @Test fun sloppyReturnStillIotizes() {
+        // 정확히 반대가 아니어도 출발점 근처로 돌아오면 ㅑ
+        assertEquals('ㅑ', vowel(45f to 0f, -38f to 14f))
+        assertEquals('ㅛ', vowel(0f to -45f, 12f to 38f))
+        // 반쯤만 돌아와도
+        assertEquals('ㅕ', vowel(-50f to 0f, 30f to 0f))
     }
 
     @Test fun turnsMakeCompoundVowels() {
@@ -82,13 +89,13 @@ class SwipeClassifierTest {
     }
 
     @Test fun gentleArcIsNotATurn() {
-        // 살짝 휘어진 긴 스와이프는 꺾기가 아니라 길게 밀기
+        // 살짝 휘어진 긴 스와이프는 꺾기가 아니다
         val arc = (0..20).map { i ->
             val t = i / 20f
             Pt(100f, 100f + 100f * t).let { Pt(it.x + 40f * t * (1 - t), it.y) }
         }
         val g = classifier.classify(arc) as Gesture.Swipe
-        assertEquals('ㅠ', SwipeVowels.resolve(g))
+        assertEquals('ㅜ', SwipeVowels.resolve(g))
     }
 
     @Test fun meaninglessTurnFallsBackToFirstVowel() {

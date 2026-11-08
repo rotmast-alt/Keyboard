@@ -2,6 +2,7 @@ package com.rotmast.swipehangul.ime
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.content.res.Configuration
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Path
@@ -21,6 +22,7 @@ import com.rotmast.swipehangul.hangul.Jamo
 import kotlin.math.abs
 import kotlin.math.hypot
 import kotlin.math.max
+import kotlin.math.min
 
 /**
  * 키를 직접 그리고 터치(탭/스와이프)를 해석하는 키보드 뷰.
@@ -63,31 +65,30 @@ class KeyboardView(context: Context) : View(context) {
     private fun dp(v: Float) = v * density
 
     private val rowHeight = dp(58f)
-    private val keyGap = dp(2.5f)
-    private val keyRadius = dp(9f)
+    private val keyGap = dp(3f)
+    private val keyRadius = dp(8f)
     private val padTop = dp(4f)
     private var bottomInset = 0
 
     private val classifier = SwipeClassifier(dp(16f), dp(64f))
 
-    // ---------- 색상 (검정 바탕 + 테두리 키) ----------
-    private val colorBg = 0xFF000000.toInt()
-    private val colorKey = 0xFF060606.toInt()
-    private val colorKeyPressed = 0xFF2C2C2E.toInt()
-    private val colorKeyActive = 0xFF1C2B48.toInt()
-    private val colorStroke = 0xFF6B6B6B.toInt()
-    private val colorStrokeActive = 0xFF4F86F7.toInt()
-    private val colorText = 0xFFEDEDED.toInt()
-    private val colorFunc = 0xFFD5D5D5.toInt()
-    private val colorDim = 0xFF6F6F6F.toInt()
-    private val colorHint = 0xFFC9A1A1.toInt()
-    private val colorTrail = 0x784F86F7
+    // ---------- 색상: 삼성 키보드풍 (밝은 회색 바탕 + 흰 키, 다크 모드 대응) ----------
+    private val dark =
+        (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+    private val colorBg = if (dark) 0xFF1C1C1E.toInt() else 0xFFEEEFF2.toInt()
+    private val colorKey = if (dark) 0xFF3A3A3C.toInt() else 0xFFFFFFFF.toInt()
+    private val colorKeyFunc = if (dark) 0xFF2C2C2E.toInt() else 0xFFDADCE1.toInt()
+    private val colorKeyPressed = if (dark) 0xFF5A5A5E.toInt() else 0xFFC4C7CD.toInt()
+    private val colorKeyActive = if (dark) 0xFF2B3E63.toInt() else 0xFFD3E3FF.toInt()
+    private val colorShadow = if (dark) 0x00000000 else 0x26000000
+    private val colorText = if (dark) 0xFFF2F2F2.toInt() else 0xFF1A1A1A.toInt()
+    private val colorFunc = if (dark) 0xFFD0D0D0.toInt() else 0xFF3C3C3C.toInt()
+    private val colorActiveText = if (dark) 0xFF8DB4FF.toInt() else 0xFF1B5FD6.toInt()
+    private val colorDim = if (dark) 0xFF6E6E73.toInt() else 0xFFA0A3A8.toInt()
+    private val colorHint = if (dark) 0xFF8E8E93.toInt() else 0xFF8A8D93.toInt()
+    private val colorTrail = 0x663E91FF
 
     private val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG)
-    private val strokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        style = Paint.Style.STROKE
-        strokeWidth = dp(1.5f)
-    }
     private val iconPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
         strokeWidth = dp(2.2f)
@@ -99,13 +100,15 @@ class KeyboardView(context: Context) : View(context) {
     private val hintPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         textAlign = Paint.Align.CENTER
         color = colorHint
-        textSize = dp(15f)
+        textSize = dp(12f)
     }
-    private val bubblePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xF0303033.toInt() }
+    private val bubblePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = if (dark) 0xFF48484A.toInt() else 0xFFFFFFFF.toInt()
+        if (!dark) setShadowLayer(dp(6f), 0f, dp(2f), 0x40000000)
+    }
     private val bubbleTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         textAlign = Paint.Align.CENTER
-        color = 0xFFFFFFFF.toInt()
-        typeface = Typeface.DEFAULT_BOLD
+        color = if (dark) 0xFFFFFFFF.toInt() else 0xFF1A1A1A.toInt()
     }
     private val trailPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
@@ -254,14 +257,20 @@ class KeyboardView(context: Context) : View(context) {
     private fun drawKey(canvas: Canvas, key: Key, pressed: Boolean) {
         val r = key.rect
         val active = isActive(key)
+        val isLetter = key.kind == KeyKind.CONSONANT || key.kind == KeyKind.CHAR || key.kind == KeyKind.SPACE
+        if (colorShadow != 0) {
+            fillPaint.color = colorShadow
+            tmpRect.set(r.left, r.top + dp(1f), r.right, r.bottom + dp(1f))
+            canvas.drawRoundRect(tmpRect, keyRadius, keyRadius, fillPaint)
+        }
         fillPaint.color = when {
             pressed -> colorKeyPressed
             active -> colorKeyActive
-            else -> colorKey
+            isLetter -> colorKey
+            else -> colorKeyFunc
         }
-        strokePaint.color = if (active) colorStrokeActive else colorStroke
         canvas.drawRoundRect(r, keyRadius, keyRadius, fillPaint)
-        canvas.drawRoundRect(r, keyRadius, keyRadius, strokePaint)
+        iconPaint.color = colorFunc
 
         when (key.kind) {
             KeyKind.BACKSPACE -> drawBackspace(canvas, r)
@@ -275,23 +284,22 @@ class KeyboardView(context: Context) : View(context) {
                 labelPaint.typeface = Typeface.DEFAULT
                 labelPaint.color = colorText
                 labelPaint.textSize = when {
-                    key.kind == KeyKind.CONSONANT -> dp(22f)
+                    key.kind == KeyKind.CONSONANT -> dp(24f)
                     label.length > 1 -> dp(16f)
-                    mode == Mode.HANGUL || mode == Mode.NUMBERS || mode == Mode.SYMBOLS -> dp(22f)
-                    else -> dp(20f)
+                    mode == Mode.ENGLISH -> dp(21f)
+                    else -> dp(22f)
                 }
                 drawCenteredText(canvas, label, r.centerX(), r.centerY(), labelPaint)
             }
             else -> {
-                labelPaint.typeface = Typeface.DEFAULT_BOLD
-                labelPaint.color = if (active) 0xFFFFFFFF.toInt() else colorFunc
-                labelPaint.textSize = if (mode == Mode.HANGUL) dp(19f) else dp(16f)
+                labelPaint.typeface = Typeface.DEFAULT
+                labelPaint.color = if (active) colorActiveText else colorFunc
+                labelPaint.textSize = if (mode == Mode.HANGUL) dp(17f) else dp(16f)
                 val label = displayLabel(key)
                 if (key.flicks.isEmpty()) {
                     drawCenteredText(canvas, label, r.centerX(), r.centerY(), labelPaint)
                 } else {
-                    // 라벨은 왼쪽 아래로 비켜 두고, 밀기 힌트를 둘레에 그린다
-                    drawCenteredText(canvas, label, r.centerX() - r.width() * 0.1f, r.centerY() + r.height() * 0.04f, labelPaint)
+                    drawCenteredText(canvas, label, r.centerX(), r.centerY(), labelPaint)
                 }
             }
         }
@@ -304,8 +312,8 @@ class KeyboardView(context: Context) : View(context) {
 
     private fun drawFlickHints(canvas: Canvas, key: Key) {
         val r = key.rect
-        val halfW = r.width() / 2 - dp(10f)
-        val halfH = r.height() / 2 - dp(10f)
+        val halfW = r.width() / 2 - dp(9f)
+        val halfH = r.height() / 2 - dp(9f)
         for ((d, text) in key.flicks) {
             val x = r.centerX() + sign(d.unitX) * halfW
             val y = r.centerY() + sign(d.unitY) * halfH
@@ -400,8 +408,8 @@ class KeyboardView(context: Context) : View(context) {
     }
 
     private fun drawRowsToggle(canvas: Canvas, r: RectF) {
-        labelPaint.typeface = Typeface.DEFAULT_BOLD
-        labelPaint.textSize = dp(15f)
+        labelPaint.typeface = Typeface.DEFAULT
+        labelPaint.textSize = dp(14f)
         val cx = r.centerX()
         val gap = r.height() * 0.22f
         labelPaint.color = if (!fiveRows) colorText else colorDim
@@ -432,13 +440,12 @@ class KeyboardView(context: Context) : View(context) {
     /** 손가락을 떼면 입력될 내용. 보여줄 게 없으면 null. */
     private fun previewFor(p: Pointer): String? = when (p.key.kind) {
         KeyKind.CONSONANT -> {
-            val c = consonantFor(p)
-            when (val g = classifier.classify(p.path)) {
-                Gesture.Tap -> if (p.longPressed) c.toString() else null
-                is Gesture.Swipe -> {
-                    val v = SwipeVowels.resolve(g)
-                    if (vowelMode) v.toString() else Jamo.compose(c, v, null)
-                }
+            val input = resolveConsonant(p)
+            val v = input.vowel
+            when {
+                v == null -> if (input.changed) input.consonant.toString() else null
+                vowelMode -> v.toString()
+                else -> Jamo.compose(input.consonant, v, null)
             }
         }
         KeyKind.SPACE -> if (p.cursorMode) "◀ ▶" else null
@@ -540,13 +547,12 @@ class KeyboardView(context: Context) : View(context) {
 
         when (key.kind) {
             KeyKind.CONSONANT -> {
-                val c = consonantFor(p)
-                when (val g = classifier.classify(p.path)) {
-                    Gesture.Tap -> l.onConsonant(c)
-                    is Gesture.Swipe -> {
-                        val v = SwipeVowels.resolve(g)
-                        if (vowelMode) l.onVowel(v) else l.onSyllable(c, v)
-                    }
+                val input = resolveConsonant(p)
+                val v = input.vowel
+                when {
+                    v == null -> l.onConsonant(input.consonant)
+                    vowelMode -> l.onVowel(v)
+                    else -> l.onSyllable(input.consonant, v)
                 }
                 vowelMode = false
             }
@@ -602,6 +608,76 @@ class KeyboardView(context: Context) : View(context) {
     private fun isLeftward(p: Pointer): Boolean {
         val g = classifier.classify(p.path)
         return g is Gesture.Swipe && g.first in setOf(Direction.W, Direction.NW, Direction.SW)
+    }
+
+    /** 자음 키 제스처 해석 결과. [vowel]이 null이면 자음만 입력. */
+    private class ConsonantInput(val consonant: Char, val vowel: Char?, val changed: Boolean)
+
+    private fun resolveConsonant(p: Pointer): ConsonantInput {
+        dragTarget(p)?.let { (c, index) ->
+            // 도착한 키에서 이어서 밀면 그 방향의 모음 (ㄱ→ㄷ 후 → 밀기 = 카)
+            val g = classifier.classify(p.path.subList(index, p.path.size))
+            return ConsonantInput(c, (g as? Gesture.Swipe)?.let(SwipeVowels::resolve), changed = true)
+        }
+        val c = consonantFor(p)
+        val g = classifier.classify(p.path)
+        return ConsonantInput(c, (g as? Gesture.Swipe)?.let(SwipeVowels::resolve), changed = p.longPressed)
+    }
+
+    /**
+     * 같은 줄/칸에서 두 칸 떨어진 자음 키까지 끌었는지 본다.
+     *  - 가로로 두 칸: 거센소리 (ㄱ→ㄷ 위치 = ㅋ, ㅇ→ㄹ 위치 = ㅎ, ㅂ→ㅈ = ㅍ, ㄷ→ㄱ = ㅌ, ㅈ→ㅂ = ㅊ)
+     *  - 세로로 두 칸: 된소리 (ㄱ→ㅂ 위치 = ㄲ, ㄷ→ㅈ = ㄸ, ㅂ→ㄱ = ㅃ, ㅅ→ㄴ = ㅆ, ㅈ→ㄷ = ㅉ)
+     * @return (바뀐 자음, 도착 지점의 path index)
+     */
+    private fun dragTarget(p: Pointer): Pair<Char, Int>? {
+        if (mode != Mode.HANGUL) return null
+        val row = rows.indexOfFirst { p.key in it }
+        if (row < 0) return null
+        val col = rows[row].indexOf(p.key)
+        val base = p.key.text[0]
+        val radius = min(p.key.rect.width(), p.key.rect.height()) * 0.45f
+        val candidates = listOf(
+            Triple(0, 2, Jamo.aspirate(base)), Triple(0, -2, Jamo.aspirate(base)),
+            Triple(2, 0, Jamo.tense(base)), Triple(-2, 0, Jamo.tense(base)),
+        )
+        for ((dr, dc, variant) in candidates) {
+            if (variant == null) continue
+            val target = rows.getOrNull(row + dr)?.getOrNull(col + dc) ?: continue
+            if (target.kind != KeyKind.CONSONANT) continue
+            val index = closestIndex(p.path, target.rect.centerX(), target.rect.centerY(), radius) ?: continue
+            return variant to index
+        }
+        return null
+    }
+
+    /** 경로가 (cx, cy)의 반경 안을 지나갔으면 가장 가까운 점의 index, 아니면 null. */
+    private fun closestIndex(path: List<Pt>, cx: Float, cy: Float, radius: Float): Int? {
+        var bestIndex = -1
+        var bestDist = Float.MAX_VALUE
+        for (i in path.indices) {
+            val d = segmentDistance(path[max(0, i - 1)], path[i], cx, cy)
+            if (d < bestDist) {
+                bestDist = d
+                bestIndex = i
+            }
+        }
+        if (bestIndex < 0 || bestDist > radius) return null
+        // 선분의 두 끝점 중 중심에 가까운 쪽
+        val prev = max(0, bestIndex - 1)
+        return if (hypot(path[prev].x - cx, path[prev].y - cy) < hypot(path[bestIndex].x - cx, path[bestIndex].y - cy)) {
+            prev
+        } else {
+            bestIndex
+        }
+    }
+
+    private fun segmentDistance(a: Pt, b: Pt, cx: Float, cy: Float): Float {
+        val dx = b.x - a.x
+        val dy = b.y - a.y
+        val len2 = dx * dx + dy * dy
+        val t = if (len2 == 0f) 0f else (((cx - a.x) * dx + (cy - a.y) * dy) / len2).coerceIn(0f, 1f)
+        return hypot(a.x + t * dx - cx, a.y + t * dy - cy)
     }
 
     /** 길게 눌렀으면 격음(ㄱ→ㅋ, ㄷ→ㅌ, ㅂ→ㅍ, ㅈ→ㅊ, ㅇ→ㅎ, ㅅ→ㅆ) */

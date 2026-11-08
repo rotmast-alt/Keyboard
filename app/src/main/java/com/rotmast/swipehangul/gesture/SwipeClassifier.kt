@@ -62,6 +62,10 @@ class SwipeClassifier(var tapSlop: Float, var longDistance: Float) {
         val second = corner?.let { Direction.of(end.x - it.x, end.y - it.y) }?.takeIf { it != first }
 
         val reach = path.maxOf { (it.x - start.x) * first.unitX + (it.y - start.y) * first.unitY }
+        // 밀었다가 출발한 자음 쪽으로 되돌아왔으면 방향이 조금 틀어져도 "되돌아오기"로 본다
+        if (reach >= tapSlop && dist(end, start) <= max(tapSlop, reach * 0.5f)) {
+            return Gesture.Swipe(first, first.opposite, reach >= longDistance)
+        }
         return Gesture.Swipe(first, second, reach >= longDistance)
     }
 
