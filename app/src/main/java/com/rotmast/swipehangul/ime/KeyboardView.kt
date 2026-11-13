@@ -350,9 +350,12 @@ class KeyboardView(context: Context) : View(context) {
         for ((d, text) in key.flicks) {
             val x = r.centerX() + sign(d.unitX) * halfW
             val y = r.centerY() + sign(d.unitY) * halfH
-            drawCenteredText(canvas, text, x, y, hintPaint)
+            drawCenteredText(canvas, flickLabel(text), x, y, hintPaint)
         }
     }
+
+    /** 밀기 문자를 화면에 보일 글자로 (엔터는 ↵) */
+    private fun flickLabel(text: String) = if (text == Layouts.ENTER_FLICK) "↵" else text
 
     private fun sign(v: Float) = when {
         v > 0.3f -> 1f
@@ -475,7 +478,7 @@ class KeyboardView(context: Context) : View(context) {
             p.longPressed -> "숫자판"
             else -> null
         }
-        else -> if (p.key.flicks.isNotEmpty() && p.moved) flickText(p) else null
+        else -> if (p.key.flicks.isNotEmpty() && p.moved) flickText(p)?.let(::flickLabel) else null
     }
 
     private fun flickText(p: Pointer): String? {
@@ -573,7 +576,11 @@ class KeyboardView(context: Context) : View(context) {
 
         // 밀기 문자가 있는 키(. 위로 밀면 !)
         if (key.flicks.isNotEmpty() && p.moved) {
-            flickText(p)?.let { l.onText(it) }
+            when (val text = flickText(p)) {
+                null -> Unit
+                Layouts.ENTER_FLICK -> l.onEnter() // . 아래로 밀기
+                else -> l.onText(text)
+            }
             return
         }
 
@@ -616,6 +623,8 @@ class KeyboardView(context: Context) : View(context) {
             KeyKind.TO_SYMBOLS -> switchTo(Mode.SYMBOLS)
             KeyKind.LANG -> switchTo(if (mode == Mode.HANGUL) Mode.ENGLISH else Mode.HANGUL)
             KeyKind.TO_LETTERS -> switchTo(lastLetterMode)
+            KeyKind.TO_HANGUL -> switchTo(Mode.HANGUL)
+            KeyKind.TO_ENGLISH -> switchTo(Mode.ENGLISH)
             KeyKind.SETTINGS -> {
                 l.onFlush()
                 l.onOpenSettings()

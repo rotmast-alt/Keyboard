@@ -14,7 +14,7 @@ import com.rotmast.swipehangul.gesture.Direction.W
 enum class KeyKind {
     CONSONANT, CHAR, BACKSPACE, ENTER, SPACE, REPEAT, VOWEL_PAD, NUM_PAD,
     TO_NUMBERS, TO_SYMBOLS, LANG, TO_LETTERS, SETTINGS, PAGE, SHIFT, SPACER,
-    SELECT_ALL, COPY, PASTE, UNDO, CURSOR_LEFT, CURSOR_RIGHT,
+    SELECT_ALL, COPY, PASTE, UNDO, CURSOR_LEFT, CURSOR_RIGHT, TO_HANGUL, TO_ENGLISH,
 }
 
 /**
@@ -40,9 +40,6 @@ enum class Mode { HANGUL, ENGLISH, NUMBERS, SYMBOLS }
  *  - 가장 먼 맨 왼쪽 열에는 드물게 쓰는 편집 키(전체선택·복사·붙여넣기)와 설정
  */
 object Layouts {
-    /** 한글·숫자·기호 자판은 맨 왼쪽에 빈 칸을 하나 두어 키 전체를 오른쪽으로 민다 (7칸) */
-    private fun rightAligned(rows: List<List<Key>>) = rows.map { listOf(Key(KeyKind.SPACER)) + it }
-
     private fun c(ch: String) = Key(KeyKind.CONSONANT, ch)
     private fun t(ch: String, weight: Float = 1f) = Key(KeyKind.CHAR, ch, weight = weight)
     private fun chars(s: String) = s.map { t(it.toString()) }
@@ -50,7 +47,11 @@ object Layouts {
     private val backspace get() = Key(KeyKind.BACKSPACE)
     private val enter get() = Key(KeyKind.ENTER)
     private fun space(weight: Float) = Key(KeyKind.SPACE, text = " ", weight = weight)
-    private val period get() = Key(KeyKind.CHAR, ".", flicks = mapOf(N to "?"))
+    /** 밀기 문자로 이 값이 나오면 엔터키를 누른 것과 같다 */
+    const val ENTER_FLICK = "\n"
+
+    /** . 키: 위로 밀면 ?, 아래로 밀면 엔터 */
+    private val period get() = Key(KeyKind.CHAR, ".", flicks = mapOf(N to "?", S to ENTER_FLICK))
 
     /** 숫자 키: 탭 5, 전화 키패드 배치대로 밀기. ↓를 길게 밀거나 ↓ 갔다 돌아오면 0 */
     val NUM_PAD_DIGITS = mapOf(
@@ -62,7 +63,7 @@ object Layouts {
     /**
      *  전체선택  기호      설정   ㄱ  ㄴ  ㄷ  ⌫
      *  복사      숫자      모음   ㄹ  ㅁ  ㅇ  !
-     *  붙여넣기  되돌리기  반복   ㅂ  ㅅ  ㅈ  .   (. 위로 밀면 ?)
+     *  붙여넣기  되돌리기  반복   ㅂ  ㅅ  ㅈ  .   (. 위로 밀면 ?, 아래로 밀면 엔터)
      * (                    ㅋ    ㅌ  ㅊ  ㅍ  ㅎ)   ← 5줄 모드 (설정에서 켬)
      *  한/영     ~         ,      ←  ␣  →  ↵
      */
@@ -106,6 +107,7 @@ object Layouts {
     }
 
     fun english(): List<List<Key>> = listOf(
+        chars("1234567890"),
         chars("qwertyuiop"),
         listOf(Key(KeyKind.SPACER, weight = 0.5f)) + chars("asdfghjkl") + Key(KeyKind.SPACER, weight = 0.5f),
         listOf(Key(KeyKind.SHIFT, "⇧", weight = 1.5f)) + chars("zxcvbnm") + Key(KeyKind.BACKSPACE, weight = 1.5f),
@@ -119,11 +121,18 @@ object Layouts {
         ),
     )
 
-    /** 전화 키패드처럼 1~9를 가운데 세 열에, 0은 8 아래 */
-    fun numbers(): List<List<Key>> = rightAligned(listOf(
-        listOf(Key(KeyKind.TO_LETTERS), t("+"), t("1"), t("2"), t("3"), backspace),
-        listOf(Key(KeyKind.TO_SYMBOLS, "기호"), t("-"), t("4"), t("5"), t("6"), t(",")),
-        listOf(t("("), t(")"), t("7"), t("8"), t("9"), t(".")),
-        listOf(t("*"), t("/"), t("="), t("0"), space(1f), enter),
-    ))
+    /**
+     * 숫자 자판 (영문 123 키, 숫자 키 길게 누르기). 왼쪽 열은 다른 자판과 같은 자리에 모드 전환 키.
+     *
+     *  붙여넣기  +  -   1  2  3  ⌫
+     *  기호      *  /   4  5  6  ␣
+     *  ABC       (  )   7  8  9  .
+     *  한글      =  %   ,  0  :  ↵
+     */
+    fun numbers(): List<List<Key>> = listOf(
+        listOf(Key(KeyKind.PASTE, "붙여넣기"), t("+"), t("-"), t("1"), t("2"), t("3"), backspace),
+        listOf(Key(KeyKind.TO_SYMBOLS, "기호"), t("*"), t("/"), t("4"), t("5"), t("6"), space(1f)),
+        listOf(Key(KeyKind.TO_ENGLISH, "ABC"), t("("), t(")"), t("7"), t("8"), t("9"), period),
+        listOf(Key(KeyKind.TO_HANGUL, "한글"), t("="), t("%"), t(","), t("0"), t(":"), enter),
+    )
 }
