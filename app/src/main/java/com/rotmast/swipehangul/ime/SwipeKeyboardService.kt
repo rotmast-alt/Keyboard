@@ -87,6 +87,8 @@ class SwipeKeyboardService : InputMethodService(), KeyboardView.Listener {
 
     override fun onVowel(v: Char) = apply(composer.inputVowel(v))
 
+    override fun onDubeolsikVowel(v: Char) = apply(composer.inputVowelDubeolsik(v))
+
     override fun onText(text: String) {
         flush()
         currentInputConnection?.commitText(text, 1)

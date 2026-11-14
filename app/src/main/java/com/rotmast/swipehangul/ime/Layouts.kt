@@ -14,7 +14,7 @@ import com.rotmast.swipehangul.gesture.Direction.W
 enum class KeyKind {
     CONSONANT, CHAR, BACKSPACE, ENTER, SPACE, REPEAT, VOWEL_PAD, NUM_PAD,
     TO_NUMBERS, TO_SYMBOLS, LANG, TO_LETTERS, SETTINGS, PAGE, SHIFT, SPACER,
-    SELECT_ALL, COPY, PASTE, UNDO, CURSOR_LEFT, CURSOR_RIGHT, TO_HANGUL, TO_ENGLISH,
+    SELECT_ALL, CUT, PASTE, UNDO, JAMO, CURSOR_LEFT, CURSOR_RIGHT, TO_HANGUL, TO_ENGLISH,
 }
 
 /**
@@ -30,7 +30,8 @@ class Key(
     val rect = RectF()
 }
 
-enum class Mode { HANGUL, ENGLISH, NUMBERS, SYMBOLS }
+/** HANGUL = 스와이프 한글, HANGUL_QWERTY = 한글 쿼티(두벌식) */
+enum class Mode { HANGUL, HANGUL_QWERTY, ENGLISH, NUMBERS, SYMBOLS }
 
 /**
  * 오른손 엄지 기준으로 배치한다.
@@ -61,17 +62,19 @@ object Layouts {
     )
 
     /**
-     *  전체선택  기호      설정   ㄱ  ㄴ  ㄷ  ⌫
-     *  복사      숫자      모음   ㄹ  ㅁ  ㅇ  !
-     *  붙여넣기  되돌리기  반복   ㅂ  ㅅ  ㅈ  .   (. 위로 밀면 ?, 아래로 밀면 엔터)
-     * (                    ㅋ    ㅌ  ㅊ  ㅍ  ㅎ)   ← 5줄 모드 (설정에서 켬)
-     *  한/영     ~         ,      ←  ␣  →  ↵
+     *  전체선택  설정      기호   ㄱ  ㄴ  ㄷ  ⌫
+     *  잘라내기  숫자      모음   ㄹ  ㅁ  ㅇ  !   (! 위로 &, 아래로 /)
+     *  붙여넣기  되돌리기  반복   ㅂ  ㅅ  ㅈ  .   (. 위로 ?, 아래로 엔터)
+     * (                    ㅋ    ㅌ  ㅊ  ㅍ  ㅎ)  ← 5줄 모드 (설정에서 켬)
+     *  한/영     (         )      ←  ␣  →  ↵    (( 위로 ~, ) 위로 ,)
+     *
+     *  잘라내기를 오른쪽으로 밀면 복사.
      */
     fun hangul(fiveRows: Boolean): List<List<Key>> = grid(fiveRows, symbolPage = null)
 
     /**
      * 기호 자판: 한글 자판과 같은 모양에서 자음 9칸만 기호로 바뀐다.
-     * 기호 키 자리는 '한글'(돌아가기), 설정 자리는 '넘기기'(다음 기호 묶음).
+     * 기호 키 자리는 '넘기기'(다음 기호 묶음), 한/영 자리는 '한글'(돌아가기).
      */
     fun symbols(page: Int): List<List<Key>> = grid(fiveRows = false, symbolPage = page)
 
@@ -88,37 +91,58 @@ object Layouts {
         val symbols = symbolPage?.let { SYMBOL_PAGES[it] }
         fun cell(index: Int, consonant: String) = if (symbols != null) t(symbols[index]) else c(consonant)
 
-        val modeKey = if (symbols != null) Key(KeyKind.TO_LETTERS) else Key(KeyKind.TO_SYMBOLS, "기호")
-        val thirdKey = if (symbolPage != null) {
+        val symbolKey = if (symbolPage != null) {
             Key(KeyKind.PAGE, "${symbolPage + 1}/${SYMBOL_PAGES.size}")
         } else {
-            Key(KeyKind.SETTINGS, "설정")
+            Key(KeyKind.TO_SYMBOLS, "기호")
         }
-        add(listOf(Key(KeyKind.SELECT_ALL, "전체선택"), modeKey, thirdKey, cell(0, "ㄱ"), cell(1, "ㄴ"), cell(2, "ㄷ"), backspace))
-        add(listOf(Key(KeyKind.COPY, "복사"), Key(KeyKind.NUM_PAD, "5", flicks = NUM_PAD_DIGITS), Key(KeyKind.VOWEL_PAD, "모음"), cell(3, "ㄹ"), cell(4, "ㅁ"), cell(5, "ㅇ"), t("!")))
+        val bang = Key(KeyKind.CHAR, "!", flicks = mapOf(N to "&", S to "/"))
+        val openParen = Key(KeyKind.CHAR, "(", flicks = mapOf(N to "~"))
+        val closeParen = Key(KeyKind.CHAR, ")", flicks = mapOf(N to ","))
+        val langKey = if (symbols != null) Key(KeyKind.TO_LETTERS) else Key(KeyKind.LANG, "한/영")
+
+        add(listOf(Key(KeyKind.SELECT_ALL, "전체선택"), Key(KeyKind.SETTINGS, "설정"), symbolKey, cell(0, "ㄱ"), cell(1, "ㄴ"), cell(2, "ㄷ"), backspace))
+        add(listOf(Key(KeyKind.CUT, "잘라내기"), Key(KeyKind.NUM_PAD, "5", flicks = NUM_PAD_DIGITS), Key(KeyKind.VOWEL_PAD, "모음"), cell(3, "ㄹ"), cell(4, "ㅁ"), cell(5, "ㅇ"), bang))
         add(listOf(Key(KeyKind.PASTE, "붙여넣기"), Key(KeyKind.UNDO, "되돌리기"), Key(KeyKind.REPEAT, "반복"), cell(6, "ㅂ"), cell(7, "ㅅ"), cell(8, "ㅈ"), period))
-        if (fiveRows) add(listOf(Key(KeyKind.SPACER), Key(KeyKind.SPACER), c("ㅋ"), c("ㅌ"), c("ㅊ"), c("ㅍ"), c("ㅎ")))
+        if (fiveRows && symbols == null) add(listOf(Key(KeyKind.SPACER), Key(KeyKind.SPACER), c("ㅋ"), c("ㅌ"), c("ㅊ"), c("ㅍ"), c("ㅎ")))
         add(
             listOf(
-                Key(KeyKind.LANG, "한/영"), t("~"), t(","),
+                langKey, openParen, closeParen,
                 Key(KeyKind.CURSOR_LEFT), space(1f), Key(KeyKind.CURSOR_RIGHT), enter,
             ),
         )
     }
+
+    /** 쿼티 자판 아래 줄 (영문·한글 쿼티 공통). 한/영을 오른쪽으로 밀면 스와이프 한글 */
+    private fun qwertyBottom() = listOf(
+        Key(KeyKind.LANG, "한/영", weight = 1.5f),
+        Key(KeyKind.TO_NUMBERS, "123", weight = 1.2f),
+        t(","),
+        space(4f),
+        period,
+        Key(KeyKind.ENTER, weight = 1.5f),
+    )
+
+    private fun jamo(s: String) = s.map { Key(KeyKind.JAMO, it.toString()) }
+
+    /** 한글 쿼티 (두벌식): 영문 쿼티와 같은 모양 */
+    fun hangulQwerty(): List<List<Key>> = listOf(
+        chars("1234567890"),
+        jamo("ㅂㅈㄷㄱㅅㅛㅕㅑㅐㅔ"),
+        listOf(Key(KeyKind.SPACER, weight = 0.5f)) + jamo("ㅁㄴㅇㄹㅎㅗㅓㅏㅣ") + Key(KeyKind.SPACER, weight = 0.5f),
+        listOf(Key(KeyKind.SHIFT, "⇧", weight = 1.5f)) + jamo("ㅋㅌㅊㅍㅠㅜㅡ") + Key(KeyKind.BACKSPACE, weight = 1.5f),
+        qwertyBottom(),
+    )
+
+    /** 한글 쿼티에서 ⇧를 눌렀을 때 */
+    val QWERTY_SHIFT = mapOf('ㅂ' to 'ㅃ', 'ㅈ' to 'ㅉ', 'ㄷ' to 'ㄸ', 'ㄱ' to 'ㄲ', 'ㅅ' to 'ㅆ', 'ㅐ' to 'ㅒ', 'ㅔ' to 'ㅖ')
 
     fun english(): List<List<Key>> = listOf(
         chars("1234567890"),
         chars("qwertyuiop"),
         listOf(Key(KeyKind.SPACER, weight = 0.5f)) + chars("asdfghjkl") + Key(KeyKind.SPACER, weight = 0.5f),
         listOf(Key(KeyKind.SHIFT, "⇧", weight = 1.5f)) + chars("zxcvbnm") + Key(KeyKind.BACKSPACE, weight = 1.5f),
-        listOf(
-            Key(KeyKind.LANG, "한/영", weight = 1.5f),
-            Key(KeyKind.TO_NUMBERS, "123", weight = 1.2f),
-            t(","),
-            space(4f),
-            period,
-            Key(KeyKind.ENTER, weight = 1.5f),
-        ),
+        qwertyBottom(),
     )
 
     /**

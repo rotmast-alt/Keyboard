@@ -35,6 +35,8 @@ class KeyboardView(context: Context) : View(context) {
         fun onConsonant(c: Char)
         fun onSyllable(c: Char, v: Char)
         fun onVowel(v: Char)
+        /** 한글 쿼티(두벌식) 모음: 앞 글자 받침을 넘겨받는다 */
+        fun onDubeolsikVowel(v: Char)
         fun onText(text: String)
         fun onBackspace()
         fun onDeleteWord()
@@ -153,7 +155,7 @@ class KeyboardView(context: Context) : View(context) {
     // ---------- 외부 API ----------
 
     fun setMode(newMode: Mode) {
-        if (newMode == Mode.HANGUL || newMode == Mode.ENGLISH) lastLetterMode = newMode
+        if (newMode == Mode.HANGUL || newMode == Mode.ENGLISH || newMode == Mode.HANGUL_QWERTY) lastLetterMode = newMode
         mode = newMode
         symbolPage = 0
         shift = ShiftState.OFF
@@ -166,6 +168,7 @@ class KeyboardView(context: Context) : View(context) {
         rows = when (mode) {
             Mode.HANGUL -> Layouts.hangul(fiveRows)
             Mode.ENGLISH -> Layouts.english()
+            Mode.HANGUL_QWERTY -> Layouts.hangulQwerty()
             Mode.NUMBERS -> Layouts.numbers()
             Mode.SYMBOLS -> Layouts.symbols(symbolPage)
         }
@@ -265,7 +268,7 @@ class KeyboardView(context: Context) : View(context) {
         val r = key.rect
         val active = isActive(key)
         val isLetter = key.kind == KeyKind.CONSONANT || key.kind == KeyKind.CHAR ||
-            key.kind == KeyKind.SPACE || key.kind == KeyKind.NUM_PAD
+            key.kind == KeyKind.SPACE || key.kind == KeyKind.NUM_PAD || key.kind == KeyKind.JAMO
         if (colorShadow != 0) {
             fillPaint.color = colorShadow
             tmpRect.set(r.left, r.top + dp(1f), r.right, r.bottom + dp(1f))
@@ -287,14 +290,14 @@ class KeyboardView(context: Context) : View(context) {
             KeyKind.NUM_PAD -> drawNumPad(canvas, r)
             KeyKind.CURSOR_LEFT -> drawArrow(canvas, r, left = true)
             KeyKind.CURSOR_RIGHT -> drawArrow(canvas, r, left = false)
-            KeyKind.CONSONANT, KeyKind.CHAR -> {
+            KeyKind.CONSONANT, KeyKind.CHAR, KeyKind.JAMO -> {
                 val label = displayLabel(key)
                 labelPaint.typeface = Typeface.DEFAULT
                 labelPaint.color = colorText
                 labelPaint.textSize = when {
                     key.kind == KeyKind.CONSONANT -> dp(24f)
                     label.length > 1 -> dp(16f)
-                    mode == Mode.ENGLISH -> dp(21f)
+                    mode == Mode.ENGLISH || mode == Mode.HANGUL_QWERTY -> dp(21f)
                     else -> dp(22f)
                 }
                 drawCenteredText(canvas, label, r.centerX(), r.centerY(), labelPaint)
@@ -323,6 +326,10 @@ class KeyboardView(context: Context) : View(context) {
             }
         }
         if (key.flicks.isNotEmpty() && key.kind != KeyKind.NUM_PAD) drawFlickHints(canvas, key)
+        // 오른쪽으로 밀 수 있는 키 표시: 잘라내기(→복사), 쿼티의 한/영(→스와이프 한글)
+        if (key.kind == KeyKind.CUT || (key.kind == KeyKind.LANG && mode != Mode.HANGUL)) {
+            drawCenteredText(canvas, "›", r.right - dp(7f), r.centerY(), hintPaint)
+        }
     }
 
     /** 숫자 키: 작은 3×3 키패드 모양. 가운데 5가 탭, 나머지는 그 방향으로 밀기 */
@@ -366,7 +373,8 @@ class KeyboardView(context: Context) : View(context) {
     private fun displayLabel(key: Key): String = when (key.kind) {
         KeyKind.CONSONANT -> key.label
         KeyKind.CHAR -> if (mode == Mode.ENGLISH && shift != ShiftState.OFF) key.label.uppercase() else key.label
-        KeyKind.TO_LETTERS -> if (lastLetterMode == Mode.HANGUL) "한글" else "ABC"
+        KeyKind.TO_LETTERS -> if (lastLetterMode == Mode.ENGLISH) "ABC" else "한글"
+        KeyKind.JAMO -> if (shift != ShiftState.OFF) (Layouts.QWERTY_SHIFT[key.text[0]]?.toString() ?: key.label) else key.label
         else -> key.label
     }
 
@@ -473,6 +481,8 @@ class KeyboardView(context: Context) : View(context) {
         KeyKind.VOWEL_PAD -> (classifier.classify(p.path) as? Gesture.Swipe)?.let { SwipeVowels.resolve(it).toString() }
         KeyKind.SPACE -> if (p.cursorMode) "◀ ▶" else null
         KeyKind.BACKSPACE -> if (!p.repeating && p.moved && isLeftward(p)) "단어 지우기" else null
+        KeyKind.CUT -> if (isRightward(p)) "복사" else null
+        KeyKind.LANG -> if (mode != Mode.HANGUL && isRightward(p)) "스와이프 한글" else null
         KeyKind.NUM_PAD -> when {
             p.moved -> flickText(p)
             p.longPressed -> "숫자판"
@@ -621,7 +631,21 @@ class KeyboardView(context: Context) : View(context) {
             KeyKind.ENTER -> l.onEnter()
             KeyKind.TO_NUMBERS -> switchTo(if (mode == Mode.NUMBERS) lastLetterMode else Mode.NUMBERS)
             KeyKind.TO_SYMBOLS -> switchTo(Mode.SYMBOLS)
-            KeyKind.LANG -> switchTo(if (mode == Mode.HANGUL) Mode.ENGLISH else Mode.HANGUL)
+            // 한/영: 스와이프 한글 → 영문 쿼티 → 한글 쿼티 → 영문 쿼티 …
+            // 쿼티에서 한/영을 오른쪽으로 밀면 스와이프 한글
+            KeyKind.LANG -> switchTo(
+                when {
+                    mode != Mode.HANGUL && isRightward(p) -> Mode.HANGUL
+                    mode == Mode.ENGLISH -> Mode.HANGUL_QWERTY
+                    else -> Mode.ENGLISH
+                },
+            )
+            KeyKind.JAMO -> {
+                val base = key.text[0]
+                val ch = if (shift != ShiftState.OFF) Layouts.QWERTY_SHIFT[base] ?: base else base
+                if (Jamo.isJungseong(ch)) l.onDubeolsikVowel(ch) else l.onConsonant(ch)
+                if (shift == ShiftState.ONCE) shift = ShiftState.OFF
+            }
             KeyKind.TO_LETTERS -> switchTo(lastLetterMode)
             KeyKind.TO_HANGUL -> switchTo(Mode.HANGUL)
             KeyKind.TO_ENGLISH -> switchTo(Mode.ENGLISH)
@@ -632,7 +656,8 @@ class KeyboardView(context: Context) : View(context) {
             // 숫자 키 탭은 5, 길게 누르면 숫자판
             KeyKind.NUM_PAD -> if (p.longPressed) switchTo(Mode.NUMBERS) else l.onText("5")
             KeyKind.SELECT_ALL -> l.onEditAction(android.R.id.selectAll)
-            KeyKind.COPY -> l.onEditAction(android.R.id.copy)
+            // 잘라내기, 오른쪽으로 밀면 복사
+            KeyKind.CUT -> l.onEditAction(if (isRightward(p)) android.R.id.copy else android.R.id.cut)
             KeyKind.PASTE -> l.onEditAction(android.R.id.paste)
             KeyKind.UNDO -> l.onEditAction(android.R.id.undo)
             KeyKind.CURSOR_LEFT, KeyKind.CURSOR_RIGHT -> if (!p.repeating) fireRepeatable(key)
@@ -658,6 +683,12 @@ class KeyboardView(context: Context) : View(context) {
             KeyKind.CURSOR_RIGHT -> l.onCursorMove(1)
             else -> Unit
         }
+    }
+
+    private fun isRightward(p: Pointer): Boolean {
+        if (!p.moved) return false
+        val g = classifier.classify(p.path)
+        return g is Gesture.Swipe && g.first in setOf(Direction.E, Direction.NE, Direction.SE)
     }
 
     private fun isLeftward(p: Pointer): Boolean {

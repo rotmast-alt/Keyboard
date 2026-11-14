@@ -84,6 +84,28 @@ class HangulComposer {
     }
 
     /**
+     * 두벌식(한글 쿼티) 모음 입력. 받침이 있으면 다음 글자의 초성으로 넘긴다 (각 + ㅏ → 가가, 닭 + ㅏ → 달가).
+     */
+    fun inputVowelDubeolsik(v: Char): EditResult {
+        require(Jamo.isJungseong(v)) { "not a vowel: $v" }
+        val currentJong = jong
+        if (cho != null && jung != null && currentJong != null) {
+            val split = Jamo.splitJong(currentJong)
+            jong = split?.first
+            val moved = split?.second ?: currentJong
+            val commit = flush()
+            cho = moved
+            jung = v
+            return EditResult(commit, composingText())
+        }
+        if (cho != null && jung == null) {
+            jung = v
+            return EditResult("", composingText())
+        }
+        return inputVowel(v)
+    }
+
+    /**
      * 마지막 자음을 된소리로 바꾼다. 받침이 있으면 받침(각→갂, 갓→갔), 없으면 초성(가→까, ㄱ→ㄲ).
      * 바꿀 수 없으면 null.
      */

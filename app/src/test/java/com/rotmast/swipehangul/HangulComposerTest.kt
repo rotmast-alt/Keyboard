@@ -21,6 +21,9 @@ class HangulComposerTest {
             val r = composer.tenseLast() ?: composer.repeat()!!
             committed.append(r.commit); composing = r.composing
         }
+        fun dv(v: Char) = apply { val r = composer.inputVowelDubeolsik(v); committed.append(r.commit); composing = r.composing }
+        /** 두벌식 자판 그대로 치기 */
+        fun qwerty(keys: String) = apply { for (k in keys) if (Jamo.isJungseong(k)) dv(k) else tap(k) }
         fun back() = apply {
             val r = composer.backspace()
             if (r == null) { if (committed.isNotEmpty()) committed.setLength(committed.length - 1) } else composing = r.composing
@@ -110,5 +113,18 @@ class HangulComposerTest {
         assertEquals('ㅎ', Jamo.aspirate('ㅇ'))
         assertEquals('ㅆ', Jamo.aspirate('ㅅ'))
         assertNull(Jamo.aspirate('ㄴ'))
+    }
+
+    @Test fun dubeolsikQwerty() {
+        assertEquals("한글", Editor().qwerty("ㅎㅏㄴㄱㅡㄹ").text)
+        assertEquals("가가", Editor().qwerty("ㄱㅏㄱㅏ").text)
+        assertEquals("각가", Editor().qwerty("ㄱㅏㄱㄱㅏ").text)
+        assertEquals("달가", Editor().qwerty("ㄷㅏㄹㄱㅏ").text)
+        assertEquals("닭", Editor().qwerty("ㄷㅏㄹㄱ").text)
+        assertEquals("과자", Editor().qwerty("ㄱㅗㅏㅈㅏ").text)
+        assertEquals("의사", Editor().qwerty("ㅇㅡㅣㅅㅏ").text)
+        assertEquals("ㅋ큐ㅠ", Editor().qwerty("ㅋㅋㅠㅠ").text) // 표준 두벌식과 같은 동작
+        assertEquals("있어", Editor().qwerty("ㅇㅣㅆㅇㅓ").text)
+        assertEquals("앉아", Editor().qwerty("ㅇㅏㄴㅈㅇㅏ").text)
     }
 }
