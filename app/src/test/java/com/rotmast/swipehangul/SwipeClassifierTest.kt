@@ -186,4 +186,30 @@ class SwipeClassifierTest {
         // 현재 모음은 후보에 없음
         assertTrue('ㅓ' !in SwipeVowels.alternatives(swipe(Direction.W)))
     }
+
+    /** 원호 경로: 중심 (cx, cy), 반지름 r, 각도 from→to (수학 각도, 화면은 y 아래로) */
+    private fun arc(cx: Float, cy: Float, r: Float, from: Double, to: Double): List<Pt> =
+        (0..24).map { i ->
+            val a = Math.toRadians(from + (to - from) * i / 24)
+            Pt(100f + cx + r * Math.cos(a).toFloat(), 100f + cy - r * Math.sin(a).toFloat())
+        }
+
+    @Test fun fastRoundedWaIsNotHae() {
+        // 빨리 쳐서 둥글어진 ㅘ: ↑로 출발해 → 로 끝나는 원호 (화가 해로 나오던 오타)
+        fun g(path: List<Pt>) = SwipeVowels.resolve(classifier.classify(path) as Gesture.Swipe)
+        assertEquals('ㅘ', g(arc(50f, 0f, 50f, 180.0, 90.0)))
+        assertEquals('ㅘ', g(arc(50f, 0f, 50f, 180.0, 70.0)))  // ㅏ자리 쪽으로 조금 내려옴
+        assertEquals('ㅘ', g(arc(40f, 0f, 40f, 185.0, 95.0)))
+        // 둥근 ㅝ: ↓로 출발해 ← 로 끝남
+        assertEquals('ㅝ', g(arc(-50f, 0f, 50f, 0.0, -90.0)))
+        // 진짜 ↗(ㅐ)는 그대로
+        assertEquals('ㅐ', vowel(40f to -40f))
+        assertEquals('ㅐ', vowel(0f to -20f, 35f to -20f))
+    }
+
+    @Test fun haeOffersHwa() {
+        assertTrue('ㅘ' in SwipeVowels.alternatives(swipe(Direction.NE)))
+        assertTrue('ㅘ' in SwipeVowels.alternatives(swipe(Direction.N, Direction.SE))) // 회 → 화
+        assertTrue('ㅝ' in SwipeVowels.alternatives(swipe(Direction.SW)))
+    }
 }

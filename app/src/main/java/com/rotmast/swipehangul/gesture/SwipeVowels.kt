@@ -48,7 +48,7 @@ object SwipeVowels {
 
     /**
      * 오타 교정 후보: 실제로 민 방향의 바로 옆(±45°) 방향으로 밀었을 때 나왔을 모음들.
-     *  - 단순 밀기: 옆 방향 모음 (어 → 에, 으)
+     *  - 단순 밀기: 옆 방향 모음 (어 → 에, 으). ↗·↙는 둥근 ㅘ·ㅝ도 (해 → 화, 으 → 워)
      *  - 꺾기(겹모음): 둘째 자리의 옆 자리 (ㅘ → ㅙ, ㅚ)
      *  - 되돌아오기: 옆 방향의 되돌아오기 + 되돌아오지 않은 모음 (ㅑ → ㅒ, ㅏ …)
      * 화면에서 왼쪽 방향 모음이 왼쪽에 오도록 방향의 x 순서(같으면 위쪽 먼저)로 정렬한다. 최대 [limit]개.
@@ -62,7 +62,15 @@ object SwipeVowels {
         }
         val second = g.second
         when {
-            second == null -> neighbors(g.first).forEach { add(Gesture.Swipe(it, null, false), it) }
+            second == null -> {
+                // ↗(ㅐ)는 둥글게 친 ㅘ, ↙(ㅡ)는 둥글게 친 ㅝ일 수 있다 (해 → 화)
+                when (g.first) {
+                    Direction.NE -> add(Gesture.Swipe(Direction.N, Direction.E, false), Direction.E)
+                    Direction.SW -> add(Gesture.Swipe(Direction.S, Direction.W, false), Direction.W)
+                    else -> Unit
+                }
+                neighbors(g.first).forEach { add(Gesture.Swipe(it, null, false), it) }
+            }
             second == g.first.opposite -> {
                 neighbors(g.first).forEach { add(Gesture.Swipe(it, it.opposite, false), it) }
                 add(Gesture.Swipe(g.first, null, false), g.first)

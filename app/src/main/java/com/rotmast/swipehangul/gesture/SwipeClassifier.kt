@@ -92,6 +92,10 @@ class SwipeClassifier(var tapSlop: Float, var longDistance: Float) {
                 corner = null
             }
         }
+        // 꺾인 곳이 없거나 둥글게 휘었을 뿐이면, 둥근 ㅘ·ㅝ인지 본다
+        if (corner == null || !isSharpCorner(path, corner)) {
+            roundedTurn(path)?.let { (f, second) -> return Gesture.Swipe(f, second, false, second) }
+        }
         val first = if (corner == null) {
             quantize(end.x - start.x, end.y - start.y)
         } else {
@@ -147,6 +151,69 @@ class SwipeClassifier(var tapSlop: Float, var longDistance: Float) {
 
     /** 꺾은 뒤 이만큼만 움직여도 꺾기로 본다 (짧게 꺾는 ㅝ·ㅘ 대비) */
     private val turnSlop: Float get() = tapSlop * 0.6f
+
+    /**
+     * 빨리 쳐서 모서리가 둥글게 뭉개진 ㅘ·ㅝ (화→해 오타).
+     * 똑바로 ↑ 출발해서 끝에는 수평 → 로 움직이고 있으면 ㅗ자리→ㅏ자리(ㅘ),
+     * 똑바로 ↓ 출발해서 끝에는 ← 로 움직이고 있으면 ㅜ자리→ㅓ자리(ㅝ).
+     * 처음부터 대각선이거나 끝까지 대각선으로 가는 ↗·↙(ㅐ·ㅡ)는 해당하지 않는다.
+     */
+    private fun roundedTurn(path: List<Pt>): Pair<Direction, Direction>? {
+        val start = path[0]
+        val end = path.last()
+        val chord = dist(start, end)
+        if (chord < tapSlop) return null
+        val head = pointAt(path, 0.35f)
+        val tail = pointAt(path, 0.7f)
+        if (dist(start, head) < tapSlop * 0.5f || dist(tail, end) < tapSlop * 0.4f) return null
+        val headDir = quantize(head.x - start.x, head.y - start.y)
+        val tailDir = quantize(end.x - tail.x, end.y - tail.y)
+        val pos = quantize(end.x - start.x, end.y - start.y)
+        val bend = path.maxOf { deviation(start, end, it) } / chord
+        if (bend < 0.12f) return null
+        return when {
+            headDir == Direction.N && tailDir == Direction.E && (pos == Direction.NE || pos == Direction.E) ->
+                Direction.N to Direction.E
+            headDir == Direction.S && tailDir == Direction.W && (pos == Direction.SW || pos == Direction.W) ->
+                Direction.S to Direction.W
+            else -> null
+        }
+    }
+
+    /** 꺾인 지점 앞뒤(경로 길이의 15%)만 봤을 때 55° 넘게 방향이 바뀌면 ㄱ자로 꺾은 것, 아니면 둥근 곡선 */
+    private fun isSharpCorner(path: List<Pt>, corner: Pt): Boolean {
+        val lengths = FloatArray(path.size)
+        for (i in 1 until path.size) lengths[i] = lengths[i - 1] + dist(path[i - 1], path[i])
+        val total = lengths.last()
+        if (total == 0f) return true
+        val ci = path.indexOf(corner)
+        val at = lengths[ci]
+        val before = path[lengths.indexOfFirst { it >= at - total * 0.15f }.coerceAtLeast(0)]
+        val afterIndex = lengths.indexOfFirst { it >= at + total * 0.15f }
+        val after = path[if (afterIndex < 0) path.lastIndex else afterIndex]
+        val ax = corner.x - before.x
+        val ay = corner.y - before.y
+        val bx = after.x - corner.x
+        val by = after.y - corner.y
+        val la = hypot(ax, ay)
+        val lb = hypot(bx, by)
+        if (la == 0f || lb == 0f) return true
+        val cos = ((ax * bx + ay * by) / (la * lb)).coerceIn(-1f, 1f)
+        return Math.toDegrees(kotlin.math.acos(cos.toDouble())) > 55.0
+    }
+
+    /** 경로 길이의 [fraction] 지점에 가장 가까운 점 */
+    private fun pointAt(path: List<Pt>, fraction: Float): Pt {
+        var total = 0f
+        for (i in 1 until path.size) total += dist(path[i - 1], path[i])
+        val target = total * fraction
+        var acc = 0f
+        for (i in 1 until path.size) {
+            acc += dist(path[i - 1], path[i])
+            if (acc >= target) return path[i]
+        }
+        return path.last()
+    }
 
     private fun isAdjacent(a: Direction, b: Direction): Boolean {
         val d = abs(a.ordinal - b.ordinal)
