@@ -355,7 +355,10 @@ class KeyboardView(context: Context) : View(context) {
             KeyKind.ENTER -> drawEnter(canvas, r)
             KeyKind.NUM_PAD -> drawNumPad(canvas, r)
             KeyKind.CURSOR_LEFT -> drawArrow(canvas, r, left = true)
-            KeyKind.CURSOR_RIGHT -> drawArrow(canvas, r, left = false)
+            KeyKind.CURSOR_RIGHT -> {
+                drawArrow(canvas, r, left = false)
+                if (mode == Mode.HANGUL) drawCenteredText(canvas, "반복↑", r.centerX(), r.top + dp(9f), hintPaint)
+            }
             KeyKind.CONSONANT, KeyKind.CHAR, KeyKind.JAMO -> {
                 val label = displayLabel(key)
                 labelPaint.typeface = Typeface.DEFAULT
@@ -548,6 +551,7 @@ class KeyboardView(context: Context) : View(context) {
         KeyKind.SPACE -> if (p.cursorMode) "◀ ▶" else null
         KeyKind.BACKSPACE -> if (!p.repeating && p.moved && isLeftward(p)) "단어 지우기" else null
         KeyKind.CUT -> if (isRightward(p)) "복사" else null
+        KeyKind.CURSOR_RIGHT -> repeatCount(p).takeIf { it > 0 }?.let { "반복 ×$it" }
         KeyKind.LANG -> if (mode != Mode.HANGUL && isRightward(p)) "스와이프 한글" else null
         KeyKind.NUM_PAD -> when {
             p.moved -> flickText(p)
@@ -744,7 +748,12 @@ class KeyboardView(context: Context) : View(context) {
             KeyKind.CUT -> l.onEditAction(if (isRightward(p)) android.R.id.copy else android.R.id.cut)
             KeyKind.PASTE -> l.onEditAction(android.R.id.paste)
             KeyKind.UNDO -> l.onEditAction(android.R.id.undo)
-            KeyKind.CURSOR_LEFT, KeyKind.CURSOR_RIGHT -> if (!p.repeating) fireRepeatable(key)
+            KeyKind.CURSOR_LEFT -> if (!p.repeating) fireRepeatable(key)
+            // → 를 위로 밀면 반복: ㅈ까지 1번, ㅇ까지 2번, ㄷ까지 3번
+            KeyKind.CURSOR_RIGHT -> {
+                val n = repeatCount(p)
+                if (n > 0) repeat(n) { l.onRepeat() } else if (!p.repeating) fireRepeatable(key)
+            }
             KeyKind.PAGE -> {
                 symbolPage = (symbolPage + 1) % Layouts.SYMBOL_PAGES.size
                 rebuild()
@@ -769,6 +778,15 @@ class KeyboardView(context: Context) : View(context) {
             KeyKind.CURSOR_RIGHT -> l.onCursorMove(1)
             else -> Unit
         }
+    }
+
+    /** → 키를 위로 민 칸 수 (0~3). 한 칸 = 한 줄 높이 */
+    private fun repeatCount(p: Pointer): Int {
+        if (!p.moved || p.repeating || mode != Mode.HANGUL) return 0
+        val g = classifier.classify(p.path) as? Gesture.Swipe ?: return 0
+        if (g.first !in setOf(Direction.N, Direction.NE, Direction.NW)) return 0
+        val rise = p.path[0].y - p.path.minOf { it.y }
+        return ((rise / rowHeight) + 0.5f).toInt().coerceIn(1, 3)
     }
 
     private fun isRightward(p: Pointer): Boolean {

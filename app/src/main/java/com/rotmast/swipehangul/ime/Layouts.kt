@@ -64,11 +64,12 @@ object Layouts {
     /**
      *  전체선택  설정      기호   ㄱ  ㄴ  ㄷ  ⌫
      *  잘라내기  숫자      모음   ㄹ  ㅁ  ㅇ  !   (! 위로 &, 아래로 /, 왼쪽 ')
-     *  붙여넣기  되돌리기  반복   ㅂ  ㅅ  ㅈ  .   (. 위로 ?, 아래로 엔터, 왼쪽 ")
+     *  붙여넣기  되돌리기  123    ㅂ  ㅅ  ㅈ  .   (. 위로 ?, 아래로 엔터, 왼쪽 ")
      * (                    ㅋ    ㅌ  ㅊ  ㅍ  ㅎ)  ← 5줄 모드 (설정에서 켬)
      *  한/영     (         )      ←  ␣  →  ↵    (( 위로 ~, ) 위로 ,)
      *
      *  잘라내기를 오른쪽으로 밀면 복사.
+     *  → 를 위로 밀면 반복: ㅈ까지 1번, ㅇ까지 2번, ㄷ까지 3번.
      */
     fun hangul(fiveRows: Boolean): List<List<Key>> = grid(fiveRows, symbolPage = null)
 
@@ -103,7 +104,7 @@ object Layouts {
 
         add(listOf(Key(KeyKind.SELECT_ALL, "전체선택"), Key(KeyKind.SETTINGS, "설정"), symbolKey, cell(0, "ㄱ"), cell(1, "ㄴ"), cell(2, "ㄷ"), backspace))
         add(listOf(Key(KeyKind.CUT, "잘라내기"), Key(KeyKind.NUM_PAD, "5", flicks = NUM_PAD_DIGITS), Key(KeyKind.VOWEL_PAD, "모음"), cell(3, "ㄹ"), cell(4, "ㅁ"), cell(5, "ㅇ"), bang))
-        add(listOf(Key(KeyKind.PASTE, "붙여넣기"), Key(KeyKind.UNDO, "되돌리기"), Key(KeyKind.REPEAT, "반복"), cell(6, "ㅂ"), cell(7, "ㅅ"), cell(8, "ㅈ"), period))
+        add(listOf(Key(KeyKind.PASTE, "붙여넣기"), Key(KeyKind.UNDO, "되돌리기"), Key(KeyKind.TO_NUMBERS, "123"), cell(6, "ㅂ"), cell(7, "ㅅ"), cell(8, "ㅈ"), period))
         if (fiveRows && symbols == null) add(listOf(Key(KeyKind.SPACER), Key(KeyKind.SPACER), c("ㅋ"), c("ㅌ"), c("ㅊ"), c("ㅍ"), c("ㅎ")))
         add(
             listOf(
