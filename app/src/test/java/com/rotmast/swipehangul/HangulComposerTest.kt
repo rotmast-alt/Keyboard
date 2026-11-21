@@ -127,4 +127,13 @@ class HangulComposerTest {
         assertEquals("있어", Editor().qwerty("ㅇㅣㅆㅇㅓ").text)
         assertEquals("앉아", Editor().qwerty("ㅇㅏㄴㅈㅇㅏ").text)
     }
+
+    @Test fun replaceVowelForTypoCorrection() {
+        val e = Editor().swipe('ㅇ', 'ㅓ').tap('ㄴ')
+        assertEquals("언", e.text)
+        assertEquals("엔", e.composer.previewJung('ㅔ'))
+        e.composing = e.composer.replaceJung('ㅔ')!!.composing
+        assertEquals("엔", e.text)
+        assertNull(Editor().tap('ㄱ').composer.replaceJung('ㅏ'))
+    }
 }

@@ -45,6 +45,7 @@ class SwipeKeyboardService : InputMethodService(), KeyboardView.Listener {
         ) {
             composer.reset()
             currentInputConnection?.finishComposingText()
+            keyboardView?.invalidate() // 교정 후보 숨기기
         }
     }
 
@@ -88,6 +89,12 @@ class SwipeKeyboardService : InputMethodService(), KeyboardView.Listener {
     override fun onVowel(v: Char) = apply(composer.inputVowel(v))
 
     override fun onDubeolsikVowel(v: Char) = apply(composer.inputVowelDubeolsik(v))
+
+    override fun previewVowel(v: Char): String? = composer.previewJung(v)
+
+    override fun onReplaceVowel(v: Char) {
+        composer.replaceJung(v)?.let(::apply)
+    }
 
     override fun onText(text: String) {
         flush()

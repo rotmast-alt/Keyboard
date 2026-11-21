@@ -37,6 +37,10 @@ class KeyboardView(context: Context) : View(context) {
         fun onVowel(v: Char)
         /** 한글 쿼티(두벌식) 모음: 앞 글자 받침을 넘겨받는다 */
         fun onDubeolsikVowel(v: Char)
+        /** 조합 중인 글자의 모음을 [v]로 바꾼 모습. 바꿀 수 없으면 null (오타 교정 후보 표시) */
+        fun previewVowel(v: Char): String?
+        /** 조합 중인 글자의 모음을 [v]로 바꾼다 (오타 교정 후보 터치) */
+        fun onReplaceVowel(v: Char)
         fun onText(text: String)
         fun onBackspace()
         fun onDeleteWord()
@@ -74,6 +78,15 @@ class KeyboardView(context: Context) : View(context) {
     private val keyRadius = dp(8f)
     private val padTop = dp(4f)
     private var bottomInset = 0
+
+    // ---------- 오타 교정 후보 줄 (스와이프 한글에서 키보드 위) ----------
+    private val candidateStripHeight = dp(42f)
+    private val stripH: Float get() = if (mode == Mode.HANGUL) candidateStripHeight else 0f
+    /** 방금 민 모음과 헷갈리기 쉬운 옆 방향 모음들 */
+    private val candidates = mutableListOf<Char>()
+    private var currentVowel: Char? = null
+    private val chipRects = mutableListOf<RectF>()
+    private val chipTouches = HashMap<Int, Int>()
 
     private val classifier = SwipeClassifier(dp(16f), dp(64f))
 
@@ -160,6 +173,7 @@ class KeyboardView(context: Context) : View(context) {
         symbolPage = 0
         shift = ShiftState.OFF
         vowelMode = false
+        clearCandidates()
         rebuild()
     }
 
@@ -182,7 +196,7 @@ class KeyboardView(context: Context) : View(context) {
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         val width = MeasureSpec.getSize(widthMeasureSpec)
-        val height = (padTop * 2 + rowHeight * rows.size).toInt() + bottomInset
+        val height = (padTop * 2 + stripH + rowHeight * rows.size).toInt() + bottomInset
         setMeasuredDimension(width, height)
     }
 
@@ -207,7 +221,7 @@ class KeyboardView(context: Context) : View(context) {
     private fun layoutKeys() {
         if (width == 0) return
         val side = dp(3f)
-        var top = padTop
+        var top = padTop + stripH
         for (row in rows) {
             val total = row.sumOf { it.weight.toDouble() }.toFloat()
             val unit = (width - side * 2) / total
@@ -254,8 +268,60 @@ class KeyboardView(context: Context) : View(context) {
             if (key.kind == KeyKind.SPACER) continue
             drawKey(canvas, key, key in pressed)
         }
+        drawCandidates(canvas)
         drawTrails(canvas)
         pointers.values.lastOrNull()?.let { drawBubble(canvas, it) }
+    }
+
+    private fun setCandidates(g: Gesture.Swipe, vowel: Char) {
+        candidates.clear()
+        candidates += SwipeVowels.alternatives(g)
+        currentVowel = vowel
+    }
+
+    private fun clearCandidates() {
+        candidates.clear()
+        currentVowel = null
+    }
+
+    /** 후보 칩: 조합 중인 글자의 모음만 바꾼 모습 (언 → 엔, 은) */
+    private fun drawCandidates(canvas: Canvas) {
+        chipRects.clear()
+        if (stripH == 0f || candidates.isEmpty()) return
+        val l = listener ?: return
+        val texts = candidates.map { l.previewVowel(it) }
+        if (texts.any { it == null }) return // 조합 중인 글자가 바뀌었으면 숨김
+        val chipW = dp(64f)
+        val chipH = candidateStripHeight - dp(10f)
+        val gap = dp(10f)
+        val total = chipW * texts.size + gap * (texts.size - 1)
+        var left = (width - total) / 2
+        val top = padTop + dp(5f)
+        bubbleTextPaint.textSize = dp(20f)
+        for ((i, text) in texts.withIndex()) {
+            val rect = RectF(left, top, left + chipW, top + chipH)
+            chipRects += rect
+            fillPaint.color = if (i in chipTouches.values) colorKeyPressed else colorKey
+            canvas.drawRoundRect(rect, chipH / 2, chipH / 2, fillPaint)
+            bubbleTextPaint.color = colorText
+            drawCenteredText(canvas, text!!, rect.centerX(), rect.centerY(), bubbleTextPaint)
+            left += chipW + gap
+        }
+        bubbleTextPaint.color = if (dark) 0xFFFFFFFF.toInt() else 0xFF1A1A1A.toInt()
+    }
+
+    private fun chipAt(x: Float, y: Float): Int = chipRects.indexOfFirst {
+        x >= it.left - dp(6f) && x <= it.right + dp(6f) && y >= it.top - dp(6f) && y <= it.bottom + dp(4f)
+    }
+
+    /** 후보를 누르면 그 모음으로 바꾸고, 원래 모음은 그 자리에 후보로 남긴다 (다시 누르면 되돌림) */
+    private fun pickCandidate(index: Int) {
+        val chosen = candidates.getOrNull(index) ?: return
+        val original = currentVowel ?: return
+        listener?.onReplaceVowel(chosen)
+        candidates[index] = original
+        currentVowel = chosen
+        performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
     }
 
     private fun isActive(key: Key) = when (key.kind) {
@@ -526,13 +592,21 @@ class KeyboardView(context: Context) : View(context) {
                 val i = e.actionIndex
                 onUp(e.getPointerId(i), e.getX(i), e.getY(i))
             }
-            MotionEvent.ACTION_CANCEL -> cancelAllPointers()
+            MotionEvent.ACTION_CANCEL -> {
+                cancelAllPointers()
+                chipTouches.clear()
+            }
         }
         invalidate()
         return true
     }
 
     private fun onDown(id: Int, x: Float, y: Float) {
+        if (stripH > 0f && y < padTop + stripH) {
+            val chip = chipAt(x, y)
+            if (chip >= 0) chipTouches[id] = chip
+            return
+        }
         // 손가락 접촉점은 보는 위치보다 아래로 잡히므로 키 판정은 살짝 위로 올려서 한다
         // ('이'를 치려다 바로 아래 ㅈ이 눌리던 오타)
         val key = keyAt(x, y - dp(TOUCH_OFFSET_DP)) ?: return
@@ -577,6 +651,10 @@ class KeyboardView(context: Context) : View(context) {
     }
 
     private fun onUp(id: Int, x: Float, y: Float) {
+        chipTouches.remove(id)?.let { chip ->
+            if (chipAt(x, y) == chip) pickCandidate(chip)
+            return
+        }
         val p = pointers.remove(id) ?: return
         if (p.path.last().let { it.x != x || it.y != y }) p.path.add(Pt(x, y))
         removeCallbacks(p.longPressAction)
@@ -586,6 +664,7 @@ class KeyboardView(context: Context) : View(context) {
 
         // 밀기 문자가 있는 키(. 위로 밀면 !)
         if (key.flicks.isNotEmpty() && p.moved) {
+            clearCandidates()
             when (val text = flickText(p)) {
                 null -> Unit
                 Layouts.ENTER_FLICK -> l.onEnter() // . 아래로 밀기
@@ -603,6 +682,9 @@ class KeyboardView(context: Context) : View(context) {
                     vowelMode -> l.onVowel(v)
                     else -> l.onSyllable(input.consonant, v)
                 }
+                // 밀어서 모음을 넣었으면 헷갈리기 쉬운 옆 방향 모음을 후보로 보여준다
+                val g = input.gesture
+                if (v != null && g != null) setCandidates(g, v)
                 vowelMode = false
             }
             KeyKind.CHAR -> {
@@ -614,7 +696,9 @@ class KeyboardView(context: Context) : View(context) {
                 // 모음 키를 밀면 그 모음만 입력(ㅠㅠ), 탭하면 다음 자음 스와이프를 모음만 입력하는 모드
                 val g = classifier.classify(p.path)
                 if (g is Gesture.Swipe) {
-                    l.onVowel(SwipeVowels.resolve(g))
+                    val v = SwipeVowels.resolve(g)
+                    l.onVowel(v)
+                    setCandidates(g, v)
                     vowelMode = false
                 } else {
                     vowelMode = !vowelMode
@@ -668,6 +752,8 @@ class KeyboardView(context: Context) : View(context) {
             KeyKind.SPACER -> Unit
         }
         if (key.kind != KeyKind.VOWEL_PAD && key.kind != KeyKind.CONSONANT) vowelMode = false
+        // 받침 탭·반복처럼 같은 글자를 이어 고치는 키가 아니면 교정 후보를 지운다
+        if (key.kind !in CANDIDATE_KEEPING_KEYS) clearCandidates()
     }
 
     private fun switchTo(newMode: Mode) {
@@ -697,17 +783,22 @@ class KeyboardView(context: Context) : View(context) {
     }
 
     /** 자음 키 제스처 해석 결과. [vowel]이 null이면 자음만 입력. */
-    private class ConsonantInput(val consonant: Char, val vowel: Char?, val changed: Boolean)
+    private class ConsonantInput(
+        val consonant: Char,
+        val vowel: Char?,
+        val changed: Boolean,
+        val gesture: Gesture.Swipe? = null,
+    )
 
     private fun resolveConsonant(p: Pointer): ConsonantInput {
         dragTarget(p)?.let { (c, index) ->
             // 도착한 키에서 이어서 밀면 그 방향의 모음 (ㄱ→ㄷ 후 → 밀기 = 카)
-            val g = classifier.classify(p.path.subList(index, p.path.size))
-            return ConsonantInput(c, (g as? Gesture.Swipe)?.let(SwipeVowels::resolve), changed = true)
+            val g = classifier.classify(p.path.subList(index, p.path.size)) as? Gesture.Swipe
+            return ConsonantInput(c, g?.let(SwipeVowels::resolve), changed = true, gesture = g)
         }
         val c = consonantFor(p)
-        val g = classifier.classify(p.path)
-        return ConsonantInput(c, (g as? Gesture.Swipe)?.let(SwipeVowels::resolve), changed = p.longPressed)
+        val g = classifier.classify(p.path) as? Gesture.Swipe
+        return ConsonantInput(c, g?.let(SwipeVowels::resolve), changed = p.longPressed, gesture = g)
     }
 
     /**
@@ -807,6 +898,7 @@ class KeyboardView(context: Context) : View(context) {
 
     private companion object {
         const val PREF_FIVE_ROWS = KeyboardPrefs.FIVE_ROWS
+        val CANDIDATE_KEEPING_KEYS = setOf(KeyKind.CONSONANT, KeyKind.VOWEL_PAD, KeyKind.REPEAT)
         const val LONG_PRESS_MS = 300L
         const val NUM_PAD_LONG_PRESS_MS = 450L
         const val REPEAT_DELAY_MS = 400L

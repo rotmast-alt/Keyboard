@@ -168,4 +168,22 @@ class SwipeClassifierTest {
     @Test fun meaninglessTurnFallsBackToFirstVowel() {
         assertEquals('ㅏ', vowel(40f to 0f, 0f to 40f))
     }
+
+    private fun swipe(first: Direction, second: Direction? = null) = Gesture.Swipe(first, second, false)
+
+    @Test fun typoCandidates() {
+        // 어(←) → 왼쪽 위 ㅔ, 왼쪽 아래 ㅡ
+        assertEquals(listOf('ㅔ', 'ㅡ'), SwipeVowels.alternatives(swipe(Direction.W)))
+        // 아(→) → ㅐ, ㅣ
+        assertEquals(listOf('ㅐ', 'ㅣ'), SwipeVowels.alternatives(swipe(Direction.E)))
+        // ㅘ(ㅗ자리→ㅏ자리) → ㅙ, ㅚ
+        assertEquals(listOf('ㅙ', 'ㅚ'), SwipeVowels.alternatives(swipe(Direction.N, Direction.E)))
+        // ㅝ(ㅜ자리→ㅓ자리) → ㅞ 포함
+        assertTrue('ㅞ' in SwipeVowels.alternatives(swipe(Direction.S, Direction.W)))
+        // ㅑ(→ 되돌아오기) → ㅒ, ㅏ 포함
+        val ya = SwipeVowels.alternatives(swipe(Direction.E, Direction.W))
+        assertTrue('ㅒ' in ya && 'ㅏ' in ya)
+        // 현재 모음은 후보에 없음
+        assertTrue('ㅓ' !in SwipeVowels.alternatives(swipe(Direction.W)))
+    }
 }

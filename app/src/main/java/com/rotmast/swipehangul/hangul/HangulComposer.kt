@@ -105,6 +105,17 @@ class HangulComposer {
         return inputVowel(v)
     }
 
+    /** 조합 중인 글자의 모음만 [v]로 바꿨을 때의 모습. 모음이 없으면 null. (오타 교정 후보 표시용) */
+    fun previewJung(v: Char): String? = if (jung == null) null else Jamo.compose(cho, v, jong)
+
+    /** 조합 중인 글자의 모음만 바꾼다 (어 → 에, 언 → 엔). 모음이 없으면 null. */
+    fun replaceJung(v: Char): EditResult? {
+        if (jung == null) return null
+        require(Jamo.isJungseong(v)) { "not a vowel: $v" }
+        jung = v
+        return EditResult("", composingText())
+    }
+
     /**
      * 마지막 자음을 된소리로 바꾼다. 받침이 있으면 받침(각→갂, 갓→갔), 없으면 초성(가→까, ㄱ→ㄲ).
      * 바꿀 수 없으면 null.
