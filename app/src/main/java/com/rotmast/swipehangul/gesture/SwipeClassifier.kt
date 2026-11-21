@@ -106,7 +106,7 @@ class SwipeClassifier(var tapSlop: Float, var longDistance: Float) {
         val turned = corner?.takeIf { dist(it, end) >= turnSlop }
         val stroke = turned?.let { quantize(end.x - it.x, end.y - it.y) }?.takeIf { it != first }
         val second = turned
-            ?.let { quantize(end.x - start.x, end.y - start.y) }
+            ?.let { secondSpot(first, end.x - start.x, end.y - start.y) }
             ?.takeIf { it != first }
             ?: stroke
 
@@ -178,6 +178,19 @@ class SwipeClassifier(var tapSlop: Float, var longDistance: Float) {
                 Direction.S to Direction.W
             else -> null
         }
+    }
+
+    /**
+     * 꺾은 뒤 도착 자리. 위(ㅗ·ㅐ자리)에 갔다가 오른쪽으로 내려올 때는 엄지가 ㅏ자리보다 아래로 처지기 쉬우므로
+     * ㅏ자리를 -42°까지 넓게 본다 (화가 회로 나오던 오타). 정확히 ㅣ자리(-45° 근처 이하)로 가면 여전히 ㅚ.
+     */
+    private fun secondSpot(first: Direction, dx: Float, dy: Float): Direction {
+        val spot = quantize(dx, dy)
+        if (spot == Direction.SE && (first == Direction.N || first == Direction.NE)) {
+            val deg = Math.toDegrees(atan2(-dy.toDouble(), dx.toDouble()))
+            if (deg >= -42.0) return Direction.E
+        }
+        return spot
     }
 
     /** 꺾인 지점 앞뒤(경로 길이의 15%)만 봤을 때 55° 넘게 방향이 바뀌면 ㄱ자로 꺾은 것, 아니면 둥근 곡선 */

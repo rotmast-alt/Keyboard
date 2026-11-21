@@ -49,7 +49,10 @@ object SwipeVowels {
         return v1
     }
 
-    private val CONFUSABLE = mapOf('ㅐ' to 'ㅘ', 'ㅚ' to 'ㅘ', 'ㅙ' to 'ㅘ', 'ㅡ' to 'ㅝ', 'ㅞ' to 'ㅝ')
+    private val CONFUSABLE = mapOf(
+        'ㅐ' to 'ㅘ', 'ㅚ' to 'ㅘ', 'ㅙ' to 'ㅘ', 'ㅏ' to 'ㅘ',
+        'ㅡ' to 'ㅝ', 'ㅞ' to 'ㅝ', 'ㅓ' to 'ㅝ',
+    )
 
     private fun neighbors(d: Direction) = listOf(
         Direction.entries[(d.ordinal + 1) % 8],
@@ -87,8 +90,9 @@ object SwipeVowels {
             }
             else -> neighbors(second).filter { it != g.first }.forEach { add(Gesture.Swipe(g.first, it, false), it) }
         }
-        // 자주 헷갈리는 짝은 항상 후보에 넣는다 (해·회·홰 → 화, 으 → 워)
-        CONFUSABLE[current]?.let { if (it !in found) found[it] = Direction.E }
+        // 자주 헷갈리는 짝은 항상 후보에 넣는다 (해·회·홰·하 → 화, 으·어 → 워)
+        // 후보 줄 위치: ㅘ는 ㅏ자리(오른쪽), ㅝ는 ㅓ자리(왼쪽)
+        CONFUSABLE[current]?.let { if (it !in found) found[it] = if (it == 'ㅝ') Direction.W else Direction.E }
         val sorted = found.entries.sortedWith(compareBy({ it.value.unitX }, { it.value.unitY }))
         var picked = sorted.take(limit)
         val must = CONFUSABLE[current]

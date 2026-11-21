@@ -173,9 +173,9 @@ class SwipeClassifierTest {
 
     @Test fun typoCandidates() {
         // 어(←) → 왼쪽 위 ㅔ, 왼쪽 아래 ㅡ
-        assertEquals(listOf('ㅔ', 'ㅡ'), SwipeVowels.alternatives(swipe(Direction.W)))
+        assertEquals(listOf('ㅝ', 'ㅔ', 'ㅡ'), SwipeVowels.alternatives(swipe(Direction.W)))
         // 아(→) → ㅐ, ㅣ
-        assertEquals(listOf('ㅐ', 'ㅣ'), SwipeVowels.alternatives(swipe(Direction.E)))
+        assertEquals(listOf('ㅐ', 'ㅣ', 'ㅘ'), SwipeVowels.alternatives(swipe(Direction.E)))
         // ㅘ(ㅗ자리→ㅏ자리) → ㅙ, ㅚ
         assertEquals(listOf('ㅙ', 'ㅚ'), SwipeVowels.alternatives(swipe(Direction.N, Direction.E)))
         // ㅝ(ㅜ자리→ㅓ자리) → ㅞ 포함
@@ -232,5 +232,17 @@ class SwipeClassifierTest {
         assertTrue('ㅘ' in SwipeVowels.alternatives(swipe(Direction.NE, Direction.N)))
         // ㅐ자리 → ㅏ자리는 이제 바로 ㅘ
         assertEquals('ㅘ', SwipeVowels.resolve(swipe(Direction.NE, Direction.E)))
+    }
+
+    @Test fun anthemHwa3_droopingEndIsStillWa() {
+        // 위로 갔다가 ㅏ자리보다 조금 아래로 처져서 끝나도 ㅘ (화가 회로 나오던 오타)
+        assertEquals('ㅘ', via(10f to -35f, 45f to 35f))
+        assertEquals('ㅘ', via(28f to -32f, 45f to 38f))
+        // 정확히 ㅣ자리로 가면 여전히 ㅚ
+        assertEquals('ㅚ', via(0f to -40f, 30f to 30f))
+        assertEquals('ㅚ', via(0f to -40f, 28f to 34f))
+        // 하가 나와도 화가 후보
+        assertTrue('ㅘ' in SwipeVowels.alternatives(swipe(Direction.E)))
+        assertTrue('ㅘ' in SwipeVowels.alternatives(swipe(Direction.N, Direction.SE)))
     }
 }
