@@ -37,9 +37,19 @@ object SwipeVowels {
             }
             Jamo.combineJung(v1, base(second))?.let { return it }
             g.stroke?.let { Jamo.combineJung(v1, base(it)) }?.let { return it }
+            // 첫 자리가 대각선이면 ㅗ·ㅜ 자리까지 다 안 가고 질러간 것: 옆의 상하좌우 자리로 다시 본다
+            // (ㅐ자리를 거쳐 ㅏ자리로 = ㅘ, 화가 해로 나오던 오타)
+            if (g.first.ordinal % 2 == 1 && second != g.first.opposite) {
+                for (c in neighbors(g.first)) {
+                    if (c == second) continue
+                    Jamo.combineJung(base(c), base(second))?.let { return it }
+                }
+            }
         }
         return v1
     }
+
+    private val CONFUSABLE = mapOf('ㅐ' to 'ㅘ', 'ㅚ' to 'ㅘ', 'ㅙ' to 'ㅘ', 'ㅡ' to 'ㅝ', 'ㅞ' to 'ㅝ')
 
     private fun neighbors(d: Direction) = listOf(
         Direction.entries[(d.ordinal + 1) % 8],
@@ -77,9 +87,15 @@ object SwipeVowels {
             }
             else -> neighbors(second).filter { it != g.first }.forEach { add(Gesture.Swipe(g.first, it, false), it) }
         }
-        return found.entries
-            .sortedWith(compareBy({ it.value.unitX }, { it.value.unitY }))
-            .take(limit)
-            .map { it.key }
+        // 자주 헷갈리는 짝은 항상 후보에 넣는다 (해·회·홰 → 화, 으 → 워)
+        CONFUSABLE[current]?.let { if (it !in found) found[it] = Direction.E }
+        val sorted = found.entries.sortedWith(compareBy({ it.value.unitX }, { it.value.unitY }))
+        var picked = sorted.take(limit)
+        val must = CONFUSABLE[current]
+        if (must != null && picked.none { it.key == must }) {
+            picked = (picked.dropLast(1) + sorted.first { it.key == must })
+                .sortedWith(compareBy({ it.value.unitX }, { it.value.unitY }))
+        }
+        return picked.map { it.key }
     }
 }

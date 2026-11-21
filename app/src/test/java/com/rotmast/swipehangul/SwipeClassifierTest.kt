@@ -212,4 +212,25 @@ class SwipeClassifierTest {
         assertTrue('ㅘ' in SwipeVowels.alternatives(swipe(Direction.N, Direction.SE))) // 회 → 화
         assertTrue('ㅝ' in SwipeVowels.alternatives(swipe(Direction.SW)))
     }
+
+    @Test fun waThroughHaeSpot() {
+        // ㅗ자리까지 다 안 가고 ㅐ자리(↗)를 거쳐 ㅏ자리로 내려옴 → ㅘ (화가 해로 나오던 오타)
+        assertEquals('ㅘ', via(30f to -30f, 40f to 0f))
+        assertEquals('ㅘ', via(20f to -35f, 40f to 0f))
+        assertEquals('ㅘ', via(28f to -32f, 45f to -6f))
+        // ㅐ자리를 거쳐 ㅣ자리로 → ㅚ, ㅡ자리를 거쳐 ㅓ자리로 → ㅝ
+        assertEquals('ㅚ', via(25f to -30f, 30f to 30f))
+        assertEquals('ㅝ', via(-30f to 30f, -40f to 0f))
+        // 그대로인 것들
+        assertEquals('ㅐ', vowel(35f to -35f))
+        assertEquals('ㅙ', via(0f to -40f, 30f to -30f))
+        assertEquals('ㅢ', via(-30f to 30f, 30f to 30f))
+    }
+
+    @Test fun haeAlwaysOffersHwa() {
+        assertTrue('ㅘ' in SwipeVowels.alternatives(swipe(Direction.NE)))
+        assertTrue('ㅘ' in SwipeVowels.alternatives(swipe(Direction.NE, Direction.N)))
+        // ㅐ자리 → ㅏ자리는 이제 바로 ㅘ
+        assertEquals('ㅘ', SwipeVowels.resolve(swipe(Direction.NE, Direction.E)))
+    }
 }
