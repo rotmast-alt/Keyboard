@@ -136,4 +136,10 @@ class HangulComposerTest {
         assertEquals("엔", e.text)
         assertNull(Editor().tap('ㄱ').composer.replaceJung('ㅏ'))
     }
+
+    @Test fun plainRepeatKeepsTheSameSyllable() {
+        val e = Editor().swipe('ㄱ', 'ㅏ')
+        repeat(3) { val r = e.composer.repeat()!!; e.committed.append(r.commit); e.composing = r.composing }
+        assertEquals("가가가가", e.text)
+    }
 }

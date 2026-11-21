@@ -69,7 +69,7 @@ object Layouts {
      *  한/영     (         )      ←  ␣  →  ↵    (( 위로 ~, ) 위로 ,)
      *
      *  잘라내기를 오른쪽으로 밀면 복사.
-     *  → 를 위로 밀면 반복: ㅈ까지 1번, ㅇ까지 2번, ㄷ까지 3번.
+     *  → 를 위로 밀면 앞 글자 반복: ㅈ까지 1번, ㅇ까지 2번, ㄷ까지 3번 (가 → 가가가가).
      */
     fun hangul(fiveRows: Boolean): List<List<Key>> = grid(fiveRows, symbolPage = null)
 

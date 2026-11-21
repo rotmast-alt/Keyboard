@@ -137,6 +137,23 @@ class SwipeKeyboardService : InputMethodService(), KeyboardView.Listener {
         ic.commitText(last, 1)
     }
 
+    override fun onRepeatChar(times: Int) {
+        if (composer.isComposing) {
+            // 조합 중인 글자를 확정하고 같은 글자를 계속 조합 상태로 (뒤에 받침도 붙일 수 있게)
+            repeat(times) { composer.repeat()?.let(::apply) }
+            return
+        }
+        val ic = currentInputConnection ?: return
+        val before = ic.getTextBeforeCursor(2, 0) ?: return
+        if (before.isEmpty()) return
+        val last = if (before.length == 2 && Character.isSurrogatePair(before[0], before[1])) {
+            before.toString()
+        } else {
+            before.last().toString()
+        }
+        ic.commitText(last.repeat(times), 1)
+    }
+
     override fun onSpace() = onText(" ")
 
     override fun onEnter() {

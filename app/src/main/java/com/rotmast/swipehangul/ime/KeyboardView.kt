@@ -45,6 +45,8 @@ class KeyboardView(context: Context) : View(context) {
         fun onBackspace()
         fun onDeleteWord()
         fun onRepeat()
+        /** 앞 글자를 그대로 [times]번 더 (가 → 가가가가) */
+        fun onRepeatChar(times: Int)
         fun onSpace()
         fun onEnter()
         fun onCursorMove(delta: Int)
@@ -752,7 +754,7 @@ class KeyboardView(context: Context) : View(context) {
             // → 를 위로 밀면 반복: ㅈ까지 1번, ㅇ까지 2번, ㄷ까지 3번
             KeyKind.CURSOR_RIGHT -> {
                 val n = repeatCount(p)
-                if (n > 0) repeat(n) { l.onRepeat() } else if (!p.repeating) fireRepeatable(key)
+                if (n > 0) l.onRepeatChar(n) else if (!p.repeating) fireRepeatable(key)
             }
             KeyKind.PAGE -> {
                 symbolPage = (symbolPage + 1) % Layouts.SYMBOL_PAGES.size
