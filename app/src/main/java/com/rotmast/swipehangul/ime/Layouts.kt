@@ -51,8 +51,8 @@ object Layouts {
     /** 밀기 문자로 이 값이 나오면 엔터키를 누른 것과 같다 */
     const val ENTER_FLICK = "\n"
 
-    /** . 키: 위로 밀면 ?, 아래로 밀면 엔터 */
-    private val period get() = Key(KeyKind.CHAR, ".", flicks = mapOf(N to "?", S to ENTER_FLICK))
+    /** . 키: 위로 밀면 ?, 아래로 밀면 엔터, 왼쪽으로 밀면 " */
+    private val period get() = Key(KeyKind.CHAR, ".", flicks = mapOf(N to "?", S to ENTER_FLICK, W to "\""))
 
     /** 숫자 키: 탭 5, 전화 키패드 배치대로 밀기. ↓를 길게 밀거나 ↓ 갔다 돌아오면 0 */
     val NUM_PAD_DIGITS = mapOf(
@@ -63,8 +63,8 @@ object Layouts {
 
     /**
      *  전체선택  설정      기호   ㄱ  ㄴ  ㄷ  ⌫
-     *  잘라내기  숫자      모음   ㄹ  ㅁ  ㅇ  !   (! 위로 &, 아래로 /)
-     *  붙여넣기  되돌리기  반복   ㅂ  ㅅ  ㅈ  .   (. 위로 ?, 아래로 엔터)
+     *  잘라내기  숫자      모음   ㄹ  ㅁ  ㅇ  !   (! 위로 &, 아래로 /, 왼쪽 ')
+     *  붙여넣기  되돌리기  반복   ㅂ  ㅅ  ㅈ  .   (. 위로 ?, 아래로 엔터, 왼쪽 ")
      * (                    ㅋ    ㅌ  ㅊ  ㅍ  ㅎ)  ← 5줄 모드 (설정에서 켬)
      *  한/영     (         )      ←  ␣  →  ↵    (( 위로 ~, ) 위로 ,)
      *
@@ -96,7 +96,7 @@ object Layouts {
         } else {
             Key(KeyKind.TO_SYMBOLS, "기호")
         }
-        val bang = Key(KeyKind.CHAR, "!", flicks = mapOf(N to "&", S to "/"))
+        val bang = Key(KeyKind.CHAR, "!", flicks = mapOf(N to "&", S to "/", W to "'"))
         val openParen = Key(KeyKind.CHAR, "(", flicks = mapOf(N to "~"))
         val closeParen = Key(KeyKind.CHAR, ")", flicks = mapOf(N to ","))
         val langKey = if (symbols != null) Key(KeyKind.TO_LETTERS) else Key(KeyKind.LANG, "한/영")
